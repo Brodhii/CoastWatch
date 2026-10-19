@@ -1,0 +1,238 @@
+import '../core/constants.dart';
+import '../models/cleanup_task_model.dart';
+import '../models/report_model.dart';
+import '../models/status_history_model.dart';
+import '../models/user_profile_model.dart';
+
+class MockDataService {
+  static final List<UserProfileModel> mockUsers = [
+    UserProfileModel(
+      id: 'rep-001',
+      email: 'pelapor@coastwatch.id',
+      displayName: 'Arya Pelapor Pesisir',
+      role: UserRole.reporter,
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+    ),
+    UserProfileModel(
+      id: 'cln-001',
+      email: 'relawan@coastwatch.id',
+      displayName: 'Budi Relawan Pembersih',
+      role: UserRole.cleaner,
+      createdAt: DateTime.now().subtract(const Duration(days: 45)),
+    ),
+    UserProfileModel(
+      id: 'adm-001',
+      email: 'admin@coastwatch.id',
+      displayName: 'Tim Verifikasi Admin',
+      role: UserRole.admin,
+      createdAt: DateTime.now().subtract(const Duration(days: 60)),
+    ),
+  ];
+
+  static List<ReportModel> getInitialMockReports() {
+    final now = DateTime.now();
+
+    return [
+      // 1. VERIFIED - Ready for Cleaner
+      ReportModel(
+        id: 'CW-2024-001',
+        clientSubmissionId: 'sub-001',
+        reporterId: 'rep-001',
+        reporterName: 'Arya Pelapor Pesisir',
+        categoryId: 'plastic',
+        categoryName: 'Sampah plastik',
+        description: 'Tumpukan botol plastik minuman, wadah styrofoam, dan sedotan plastik berserakan di batas garis pasang tertinggi.',
+        latitude: 1.1345,
+        longitude: 104.0532,
+        locationName: 'Pantai Trikora, Garis Pasang Timur',
+        exifDateTimeOriginal: now.subtract(const Duration(days: 2, hours: 3)),
+        deviceLocationAccuracyM: 14.5,
+        metadataValidationStatus: 'valid',
+        status: ReportStatus.verified,
+        visibility: 'public',
+        beforePhotoUrl: 'https://images.unsplash.com/photo-1618477388954-7852f32655ec?auto=format&fit=crop&w=800&q=80',
+        createdAt: now.subtract(const Duration(days: 2, hours: 2)),
+        updatedAt: now.subtract(const Duration(days: 1, hours: 8)),
+        statusHistory: [
+          StatusHistoryModel(
+            id: 'sh-001',
+            reportId: 'CW-2024-001',
+            fromStatus: null,
+            toStatus: ReportStatus.pendingReview,
+            actorName: 'Pelapor (Arya)',
+            reason: 'Laporan baru diajukan dengan foto geotag valid',
+            createdAt: now.subtract(const Duration(days: 2, hours: 2)),
+          ),
+          StatusHistoryModel(
+            id: 'sh-002',
+            reportId: 'CW-2024-001',
+            fromStatus: ReportStatus.pendingReview,
+            toStatus: ReportStatus.verified,
+            actorName: 'Admin Verifikasi',
+            reason: 'Bukti foto dan koordinat GPS EXIF terverifikasi sah',
+            createdAt: now.subtract(const Duration(days: 1, hours: 8)),
+          ),
+        ],
+      ),
+
+      // 2. IN PROGRESS - Claimed by Cleaner
+      ReportModel(
+        id: 'CW-2024-002',
+        clientSubmissionId: 'sub-002',
+        reporterId: 'rep-001',
+        reporterName: 'Arya Pelapor Pesisir',
+        categoryId: 'fishing',
+        categoryName: 'Alat tangkap dan limbah perikanan',
+        description: 'Jaring ikan bekas (ghost net) panjang sekitar 15 meter tersangkut dan melilit akar bakau tepi pantai.',
+        latitude: 1.1560,
+        longitude: 104.0410,
+        locationName: 'Pantai Nongsa, Area Konservasi Mangrove',
+        exifDateTimeOriginal: now.subtract(const Duration(days: 3, hours: 5)),
+        deviceLocationAccuracyM: 18.0,
+        metadataValidationStatus: 'valid',
+        status: ReportStatus.inProgress,
+        visibility: 'public',
+        beforePhotoUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80',
+        cleanupTask: CleanupTaskModel(
+          id: 'tsk-001',
+          reportId: 'CW-2024-002',
+          cleanerId: 'cln-001',
+          cleanerName: 'Budi Relawan Pembersih',
+          notes: 'Tugas diambil. Sedang menyiapkan peralatan pemotong jaring bersama tim lokal.',
+          startedAt: now.subtract(const Duration(hours: 5)),
+          status: 'in_progress',
+          createdAt: now.subtract(const Duration(hours: 5)),
+        ),
+        createdAt: now.subtract(const Duration(days: 3, hours: 4)),
+        updatedAt: now.subtract(const Duration(hours: 5)),
+        statusHistory: [
+          StatusHistoryModel(
+            id: 'sh-003',
+            reportId: 'CW-2024-002',
+            fromStatus: ReportStatus.verified,
+            toStatus: ReportStatus.inProgress,
+            actorName: 'Budi Relawan Pembersih',
+            reason: 'Tugas pembersihan diklaim oleh relawan',
+            createdAt: now.subtract(const Duration(hours: 5)),
+          ),
+        ],
+      ),
+
+      // 3. CLEANED - Completed with Before & After Proof
+      ReportModel(
+        id: 'CW-2024-003',
+        clientSubmissionId: 'sub-003',
+        reporterId: 'rep-002',
+        reporterName: 'Siti Warga Pesisir',
+        categoryId: 'household',
+        categoryName: 'Sampah rumah tangga/campuran',
+        description: 'Tumpukan limbah kantong kresek dan kemasan bekas di sekitar dermaga penyeberangan rakyat.',
+        latitude: 1.1120,
+        longitude: 104.0680,
+        locationName: 'Pantai Tanjung Pasir, Sisi Dermaga',
+        exifDateTimeOriginal: now.subtract(const Duration(days: 5, hours: 8)),
+        deviceLocationAccuracyM: 12.0,
+        metadataValidationStatus: 'valid',
+        status: ReportStatus.cleaned,
+        visibility: 'public',
+        beforePhotoUrl: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80',
+        afterPhotoUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+        cleanupTask: CleanupTaskModel(
+          id: 'tsk-002',
+          reportId: 'CW-2024-003',
+          cleanerId: 'cln-001',
+          cleanerName: 'Budi Relawan Pembersih',
+          notes: 'Area dermaga berhasil dibersihkan bersama 3 karung sampah terangkut ke TPS terdekat.',
+          cleanupLat: 1.1122,
+          cleanupLng: 104.0679,
+          cleanupExifDateTimeOriginal: now.subtract(const Duration(days: 4, hours: 2)),
+          startedAt: now.subtract(const Duration(days: 4, hours: 6)),
+          completedAt: now.subtract(const Duration(days: 4, hours: 2)),
+          status: 'completed',
+          afterPhotoUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+          createdAt: now.subtract(const Duration(days: 4, hours: 6)),
+        ),
+        createdAt: now.subtract(const Duration(days: 5, hours: 7)),
+        updatedAt: now.subtract(const Duration(days: 4, hours: 2)),
+      ),
+
+      // 4. VERIFIED - Ready for Cleaner
+      ReportModel(
+        id: 'CW-2024-004',
+        clientSubmissionId: 'sub-004',
+        reporterId: 'rep-001',
+        reporterName: 'Arya Pelapor Pesisir',
+        categoryId: 'plastic',
+        categoryName: 'Sampah plastik',
+        description: 'Serpihan kemasan plastik sachet dan sedotan menumpuk sepanjang 20 meter pasir putih.',
+        latitude: 1.1410,
+        longitude: 104.0815,
+        locationName: 'Pantai Mirota, Teluk Melano',
+        exifDateTimeOriginal: now.subtract(const Duration(hours: 18)),
+        deviceLocationAccuracyM: 10.0,
+        metadataValidationStatus: 'valid',
+        status: ReportStatus.verified,
+        visibility: 'public',
+        beforePhotoUrl: 'https://images.unsplash.com/photo-1526951521990-620dc14c214b?auto=format&fit=crop&w=800&q=80',
+        createdAt: now.subtract(const Duration(hours: 17)),
+        updatedAt: now.subtract(const Duration(hours: 12)),
+      ),
+
+      // 5. PENDING REVIEW - Reporter's freshly submitted report
+      ReportModel(
+        id: 'CW-2024-005',
+        clientSubmissionId: 'sub-005',
+        reporterId: 'rep-001',
+        reporterName: 'Arya Pelapor Pesisir',
+        categoryId: 'liquid',
+        categoryName: 'Limbah cair atau indikasi pencemaran',
+        description: 'Terlihat lapisan kilau minyak tipis dan busa kehitaman terdampar di bibir muara sungai kecil.',
+        latitude: 1.1270,
+        longitude: 104.0320,
+        locationName: 'Muara Teluk Mata Ikan',
+        exifDateTimeOriginal: now.subtract(const Duration(hours: 2)),
+        deviceLocationAccuracyM: 22.0,
+        metadataValidationStatus: 'valid',
+        status: ReportStatus.pendingReview,
+        visibility: 'private',
+        beforePhotoUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80',
+        createdAt: now.subtract(const Duration(hours: 2)),
+        updatedAt: now.subtract(const Duration(hours: 2)),
+        statusHistory: [
+          StatusHistoryModel(
+            id: 'sh-005',
+            reportId: 'CW-2024-005',
+            fromStatus: null,
+            toStatus: ReportStatus.pendingReview,
+            actorName: 'Arya Pelapor Pesisir',
+            reason: 'Laporan berhasil diunggah dan sedang dalam antrean verifikasi Admin',
+            createdAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ],
+      ),
+
+      // 6. REJECTED - Example for Audit & learning
+      ReportModel(
+        id: 'CW-2024-006',
+        clientSubmissionId: 'sub-006',
+        reporterId: 'rep-003',
+        reporterName: 'Warga Anonim',
+        categoryId: 'other',
+        categoryName: 'Lainnya',
+        description: 'Foto diambil di pekarangan rumah, bukan di area lingkungan pesisir.',
+        latitude: 1.1050,
+        longitude: 104.0150,
+        locationName: 'Area Permukiman Darat',
+        exifDateTimeOriginal: now.subtract(const Duration(days: 6)),
+        deviceLocationAccuracyM: 65.0,
+        metadataValidationStatus: 'warning',
+        status: ReportStatus.rejected,
+        visibility: 'private',
+        rejectionReason: 'Lokasi berada di luar cakupan area studi pesisir dan foto tidak menunjukkan masalah lingkungan pantai.',
+        beforePhotoUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80',
+        createdAt: now.subtract(const Duration(days: 6)),
+        updatedAt: now.subtract(const Duration(days: 5)),
+      ),
+    ];
+  }
+}
