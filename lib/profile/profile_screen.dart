@@ -85,43 +85,65 @@ class ProfileScreen extends StatelessWidget {
 
               // 2. Role Switcher for Demo & Presentation (Section 15.10 & 20)
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.skyBlue.withValues(alpha: 0.25),
+                  color: AppTheme.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.teal.withValues(alpha: 0.25)),
+                  border: Border.all(color: AppTheme.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.swap_horiz_rounded, size: 18, color: AppTheme.navy),
-                        SizedBox(width: 6),
-                        Text(
-                          'Peralihan Cepat Peran Demo (Testing)',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.navy,
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      'Peralihan Cepat Peran Demo (Testing)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.navy,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Ganti mode aktor secara instan untuk mendemokan alur Pengunjung, Pelapor, atau Relawan:',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                      'Pilih peran aktor di bawah ini untuk menguji hak akses atau membuka konsol admin:',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         _buildRoleChip(context, 'Pengunjung', UserRole.guest, authService),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         _buildRoleChip(context, 'Pelapor', UserRole.reporter, authService),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         _buildRoleChip(context, 'Relawan', UserRole.cleaner, authService),
+                        const SizedBox(width: 6),
+                        _buildRoleChip(context, 'Admin', UserRole.admin, authService),
                       ],
+                    ),
+                    const SizedBox(height: 14),
+                    // Dedicated Admin Access Button (Always accessible for testing)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.navy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          if (!user.isAdmin) {
+                            authService.switchRoleForDemo(UserRole.admin);
+                          }
+                          Navigator.pushNamed(context, AppRoutes.adminShell);
+                        },
+                        child: Text(
+                          user.isAdmin ? 'Buka Konsol Admin CoastWatch' : 'Masuk sebagai Admin & Buka Konsol',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -233,10 +255,12 @@ class ProfileScreen extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected ? AppTheme.white : AppTheme.navy,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),

@@ -7,6 +7,7 @@ import 'profile/profile_screen.dart';
 import 'public/home_screen.dart';
 import 'public/public_map_screen.dart';
 import 'public/public_report_detail_screen.dart';
+import 'roles/admin/admin_shell_screen.dart';
 import 'roles/cleaner/screens/cleaner_dashboard_screen.dart';
 import 'roles/cleaner/screens/cleaner_task_detail_screen.dart';
 import 'roles/cleaner/screens/cleanup_proof_screen.dart';
@@ -97,6 +98,15 @@ class CoastWatchApp extends StatelessWidget {
               builder: (_) => CleanupSuccessScreen(report: report),
             );
 
+          case AppRoutes.adminShell:
+            return MaterialPageRoute(builder: (_) => const AdminShellScreen());
+
+          case AppRoutes.adminReviewDetail:
+            final reportId = settings.arguments as String?;
+            return MaterialPageRoute(
+              builder: (_) => AdminShellScreen(initialReportId: reportId, initialTabIndex: 1),
+            );
+
           default:
             return MaterialPageRoute(builder: (_) => const MainShellScreen());
         }
@@ -165,6 +175,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return ListenableBuilder(
       listenable: _authService,
       builder: (context, _) {
+        // If current role is Admin, directly render the Admin Console
+        if (_authService.currentRole == UserRole.admin) {
+          return const AdminShellScreen();
+        }
+
         final isCleaner = _authService.currentRole == UserRole.cleaner;
 
         final List<Widget> pages = [

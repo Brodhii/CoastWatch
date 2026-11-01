@@ -17,4 +17,8 @@ class AppRoutes {
   static const String cleanerTaskDetail = '/cleaner/task-detail';
   static const String cleanupProof = '/cleaner/cleanup-proof';
   static const String cleanupSuccess = '/cleaner/cleanup-success';
+
+  // Admin
+  static const String adminShell = '/admin';
+  static const String adminReviewDetail = '/admin/review-detail';
 }

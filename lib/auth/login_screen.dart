@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
-  final TextEditingController _emailController = TextEditingController(text: 'pelapor@coastwatch.id');
-  final TextEditingController _passwordController = TextEditingController(text: 'password123');
+  final TextEditingController _emailController = TextEditingController(text: 'admin@coastwatch.id');
+  final TextEditingController _passwordController = TextEditingController(text: 'admin123');
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Masuk untuk mengirimkan laporan pesisir atau mengelola tugas pembersihan relawan.',
+              'Masuk untuk mengirimkan laporan pesisir atau mengelola tugas pembersihan relawan dan verifikasi admin.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 24),
@@ -105,22 +105,47 @@ class _LoginScreenState extends State<LoginScreen> {
                       Icon(Icons.info_outline, size: 16, color: AppTheme.navy),
                       SizedBox(width: 6),
                       Text(
-                        'Akun Demo Pengujian:',
+                        'Akun Demo Pengujian (Klik untuk memilih):',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.navy),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   InkWell(
                     onTap: () {
-                      _emailController.text = 'pelapor@coastwatch.id';
+                      setState(() {
+                        _emailController.text = 'admin@coastwatch.id';
+                        _passwordController.text = 'admin123';
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.admin_panel_settings_outlined, size: 14, color: AppTheme.navy),
+                          SizedBox(width: 6),
+                          Text('• Admin Konsol: admin@coastwatch.id', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.navy)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _emailController.text = 'pelapor@coastwatch.id';
+                        _passwordController.text = 'password123';
+                      });
                     },
                     child: const Text('• Pelapor: pelapor@coastwatch.id', style: TextStyle(fontSize: 11, color: AppTheme.teal)),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   InkWell(
                     onTap: () {
-                      _emailController.text = 'relawan@coastwatch.id';
+                      setState(() {
+                        _emailController.text = 'relawan@coastwatch.id';
+                        _passwordController.text = 'password123';
+                      });
                     },
                     child: const Text('• Relawan: relawan@coastwatch.id', style: TextStyle(fontSize: 11, color: AppTheme.teal)),
                   ),
