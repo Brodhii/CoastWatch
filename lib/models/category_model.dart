@@ -7,6 +7,9 @@ class CategoryModel {
   final bool isActive;
   final int sortOrder;
   final IconData icon;
+  final String code;
+  final int reportCount;
+  final String? updatedDate;
 
   const CategoryModel({
     required this.id,
@@ -15,6 +18,9 @@ class CategoryModel {
     this.isActive = true,
     this.sortOrder = 0,
     required this.icon,
+    this.code = 'CW-CAT-00',
+    this.reportCount = 0,
+    this.updatedDate,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
@@ -25,6 +31,9 @@ class CategoryModel {
       isActive: json['is_active'] as bool? ?? true,
       sortOrder: json['sort_order'] as int? ?? 0,
       icon: _getIconForCategory(json['id'] as String),
+      code: json['code'] as String? ?? 'CW-CAT-00',
+      reportCount: json['report_count'] as int? ?? 0,
+      updatedDate: json['updated_date'] as String?,
     );
   }
 
@@ -35,7 +44,34 @@ class CategoryModel {
       'description': description,
       'is_active': isActive,
       'sort_order': sortOrder,
+      'code': code,
+      'report_count': reportCount,
+      'updated_date': updatedDate,
     };
+  }
+
+  CategoryModel copyWith({
+    String? id,
+    String? name,
+    String? description,
+    bool? isActive,
+    int? sortOrder,
+    IconData? icon,
+    String? code,
+    int? reportCount,
+    String? updatedDate,
+  }) {
+    return CategoryModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      isActive: isActive ?? this.isActive,
+      sortOrder: sortOrder ?? this.sortOrder,
+      icon: icon ?? this.icon,
+      code: code ?? this.code,
+      reportCount: reportCount ?? this.reportCount,
+      updatedDate: updatedDate ?? this.updatedDate,
+    );
   }
 
   static IconData _getIconForCategory(String id) {
@@ -61,51 +97,72 @@ class CategoryModel {
     CategoryModel(
       id: 'plastic',
       name: 'Sampah plastik',
-      description: 'Botol, kantong kresek, kemasan sachet, styrofoam, dan fragmen plastik yang terlihat di pesisir.',
+      description: 'Botol, kemasan sachet, kresek jeriken, dan limbah polimer di bibir pantai/muara.',
       sortOrder: 1,
       icon: Icons.water_drop_outlined,
+      code: 'CW-CAT-01',
+      reportCount: 81,
+      updatedDate: '18 Okt 2026 09:20',
     ),
     CategoryModel(
       id: 'household',
       name: 'Sampah rumah tangga/campuran',
-      description: 'Sampah campuran rumah tangga yang menumpuk di garis pantai atau muara sungai.',
+      description: 'Kain, perabot rusak, kaca, residu domestik, puntung rokok.',
       sortOrder: 2,
       icon: Icons.delete_outline,
+      code: 'CW-CAT-02',
+      reportCount: 17,
+      updatedDate: '12 Okt 2026 14:15',
     ),
     CategoryModel(
       id: 'fishing',
       name: 'Alat tangkap dan limbah perikanan',
-      description: 'Jaring terbengkalai (ghost net), tali tambang kapal, pelampung, atau alat tangkap rusak.',
+      description: 'Jaring hantu (ghost nets), pelampung busa, senar pancing kusut.',
       sortOrder: 3,
       icon: Icons.phishing,
+      code: 'CW-CAT-03',
+      reportCount: 37,
+      updatedDate: '04 Okt 2026 11:02',
     ),
     CategoryModel(
       id: 'liquid',
       name: 'Limbah cair atau indikasi pencemaran',
-      description: 'Lapisan minyak, buih mencurigakan, atau perubahan warna air laut yang mencolok.',
+      description: 'Ceceran oli, lapisan solar, air berminyak, busa kimia di perairan pesisir.',
       sortOrder: 4,
       icon: Icons.opacity,
+      code: 'CW-CAT-04',
+      reportCount: 27,
+      updatedDate: '29 Sep 2026 16:48',
     ),
     CategoryModel(
       id: 'organic',
       name: 'Sampah organik',
-      description: 'Tumpukan sisa tumbuhan, kayu gelondongan hanyut, atau bahan organik yang mengotori pantai.',
+      description: 'Kayu gelondongan hanyut, bangkai biota laut, tumpukan vegetasi laut.',
       sortOrder: 5,
       icon: Icons.eco_outlined,
+      code: 'CW-CAT-05',
+      reportCount: 12,
+      updatedDate: '22 Sep 2026 08:30',
     ),
     CategoryModel(
       id: 'ecosystem',
       name: 'Kerusakan ekosistem pesisir',
-      description: 'Indikasi kerusakan vegetasi mangrove, terumbu karang terdampar, atau abrasi abnormal.',
+      description: 'Pohon bakau roboh akibat abrasi, kerusakan terumbu, tebing pantai tergerus.',
       sortOrder: 6,
       icon: Icons.forest_outlined,
+      code: 'CW-CAT-06',
+      reportCount: 6,
+      updatedDate: '15 Sep 2026 13:10',
     ),
     CategoryModel(
       id: 'other',
       name: 'Lainnya',
-      description: 'Masalah pesisir di luar kategori utama (wajib menyertakan deskripsi rinci).',
+      description: 'Temuan material pesisir yang belum teridentifikasi dalam klasifikasi di atas.',
       sortOrder: 7,
       icon: Icons.category_outlined,
+      code: 'CW-CAT-07',
+      reportCount: 4,
+      updatedDate: '01 Sep 2026 10:00',
     ),
   ];
 }
