@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app.dart';
 import 'core/app_theme.dart';
 import 'services/auth_service.dart';
+import 'services/report_service.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
@@ -32,5 +33,9 @@ void main() async {
   // Initialize Auth state
   await AuthService().init();
 
+  // Synchronize master categories & live data from Supabase
+  await ReportService().init();
+
   runApp(const CoastWatchApp());
 }
+

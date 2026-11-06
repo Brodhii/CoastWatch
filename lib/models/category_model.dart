@@ -77,16 +77,22 @@ class CategoryModel {
   static IconData _getIconForCategory(String id) {
     switch (id.toLowerCase()) {
       case 'plastic':
+      case 'c0000000-0000-0000-0000-000000000001':
         return Icons.water_drop_outlined;
       case 'household':
+      case 'c0000000-0000-0000-0000-000000000002':
         return Icons.delete_outline;
       case 'fishing':
+      case 'c0000000-0000-0000-0000-000000000003':
         return Icons.phishing;
       case 'liquid':
+      case 'c0000000-0000-0000-0000-000000000004':
         return Icons.opacity;
       case 'organic':
+      case 'c0000000-0000-0000-0000-000000000005':
         return Icons.eco_outlined;
       case 'ecosystem':
+      case 'c0000000-0000-0000-0000-000000000006':
         return Icons.forest_outlined;
       default:
         return Icons.category_outlined;
@@ -95,7 +101,7 @@ class CategoryModel {
 
   static List<CategoryModel> get defaultCategories => const [
     CategoryModel(
-      id: 'plastic',
+      id: 'c0000000-0000-0000-0000-000000000001',
       name: 'Sampah plastik',
       description: 'Botol, kemasan sachet, kresek jeriken, dan limbah polimer di bibir pantai/muara.',
       sortOrder: 1,
@@ -105,7 +111,7 @@ class CategoryModel {
       updatedDate: '18 Okt 2026 09:20',
     ),
     CategoryModel(
-      id: 'household',
+      id: 'c0000000-0000-0000-0000-000000000002',
       name: 'Sampah rumah tangga/campuran',
       description: 'Kain, perabot rusak, kaca, residu domestik, puntung rokok.',
       sortOrder: 2,
@@ -115,7 +121,7 @@ class CategoryModel {
       updatedDate: '12 Okt 2026 14:15',
     ),
     CategoryModel(
-      id: 'fishing',
+      id: 'c0000000-0000-0000-0000-000000000003',
       name: 'Alat tangkap dan limbah perikanan',
       description: 'Jaring hantu (ghost nets), pelampung busa, senar pancing kusut.',
       sortOrder: 3,
@@ -125,7 +131,7 @@ class CategoryModel {
       updatedDate: '04 Okt 2026 11:02',
     ),
     CategoryModel(
-      id: 'liquid',
+      id: 'c0000000-0000-0000-0000-000000000004',
       name: 'Limbah cair atau indikasi pencemaran',
       description: 'Ceceran oli, lapisan solar, air berminyak, busa kimia di perairan pesisir.',
       sortOrder: 4,
@@ -135,7 +141,7 @@ class CategoryModel {
       updatedDate: '29 Sep 2026 16:48',
     ),
     CategoryModel(
-      id: 'organic',
+      id: 'c0000000-0000-0000-0000-000000000005',
       name: 'Sampah organik',
       description: 'Kayu gelondongan hanyut, bangkai biota laut, tumpukan vegetasi laut.',
       sortOrder: 5,
@@ -145,7 +151,7 @@ class CategoryModel {
       updatedDate: '22 Sep 2026 08:30',
     ),
     CategoryModel(
-      id: 'ecosystem',
+      id: 'c0000000-0000-0000-0000-000000000006',
       name: 'Kerusakan ekosistem pesisir',
       description: 'Pohon bakau roboh akibat abrasi, kerusakan terumbu, tebing pantai tergerus.',
       sortOrder: 6,
@@ -155,7 +161,7 @@ class CategoryModel {
       updatedDate: '15 Sep 2026 13:10',
     ),
     CategoryModel(
-      id: 'other',
+      id: 'c0000000-0000-0000-0000-000000000007',
       name: 'Lainnya',
       description: 'Temuan material pesisir yang belum teridentifikasi dalam klasifikasi di atas.',
       sortOrder: 7,

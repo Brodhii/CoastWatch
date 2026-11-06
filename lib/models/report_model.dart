@@ -74,8 +74,12 @@ class ReportModel {
       categoryId: json['category_id'] as String? ?? 'other',
       categoryName: json['category_name'] as String? ?? 'Lainnya',
       description: json['description'] as String? ?? '',
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      latitude: json['latitude'] is num
+          ? (json['latitude'] as num).toDouble()
+          : (double.tryParse(json['latitude']?.toString() ?? '0.0') ?? 0.0),
+      longitude: json['longitude'] is num
+          ? (json['longitude'] as num).toDouble()
+          : (double.tryParse(json['longitude']?.toString() ?? '0.0') ?? 0.0),
       locationName: json['location_name'] as String?,
       exifDateTimeOriginal: json['exif_datetime_original'] != null
           ? DateTime.parse(json['exif_datetime_original'] as String)

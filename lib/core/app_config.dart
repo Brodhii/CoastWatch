@@ -1,16 +1,13 @@
 class AppConfig {
   // Supabase Configuration
-  // Note: Ganti dengan kredensial Supabase Free milik Anda jika tersedia.
-  // Aplikasi CoastWatch secara cerdas berjalan dalam mode Mock/Offline Fallback
-  // jika kredensial belum disetel atau koneksi gagal, sehingga siap didemokan!
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://placeholder-coastwatch.supabase.co',
+    defaultValue: 'https://mxyptgfagmatwkzlnzqp.supabase.co',
   );
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'placeholder-anon-key',
+    defaultValue: 'sb_publishable_OKSFYmACAAGVJADdfmUyEg_Xny-NI7S',
   );
 
   static bool get isSupabaseConfigured {

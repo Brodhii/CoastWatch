@@ -11,6 +11,7 @@ import '../models/status_history_model.dart';
 import 'auth_service.dart';
 import 'location_service.dart';
 import 'mock_data_service.dart';
+import 'supabase_service.dart';
 
 class ReportService extends ChangeNotifier {
   static final ReportService _instance = ReportService._internal();
@@ -42,6 +43,113 @@ class ReportService extends ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  /// Inisialisasi sinkronisasi data dari cloud Supabase saat aplikasi terbuka
+  Future<void> init() async {
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        final catData = await client
+            .from('report_categories')
+            .select()
+            .eq('is_active', true);
+        if (catData.isNotEmpty) {
+          _categories = (catData as List)
+              .map((c) => CategoryModel.fromJson(c as Map<String, dynamic>))
+              .toList();
+          debugPrint('[ReportService] Synced ${_categories.length} categories from Supabase cloud.');
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('[ReportService] Category sync note: $e');
+      }
+
+      // 2. Reports
+      try {
+        final reportsData = await client
+            .from('reports')
+            .select()
+            .order('created_at', ascending: false);
+        if (reportsData.isNotEmpty) {
+          final liveReports = (reportsData as List).map((r) {
+            final cat = _categories.firstWhere(
+              (c) => c.id == r['category_id'],
+              orElse: () => CategoryModel.defaultCategories.first,
+            );
+            return ReportModel.fromJson({
+              ...r,
+              'category_name': cat.name,
+              'before_photo_url': r['before_photo_url'] ?? '',
+            });
+          }).toList();
+          _reports = liveReports;
+          debugPrint('[ReportService] Synced ${liveReports.length} reports from Supabase cloud.');
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('[ReportService] Reports sync note: $e');
+      }
+
+      // 3. Profiles / Admin Users
+      try {
+        final profilesData = await client
+            .from('profiles')
+            .select()
+            .order('created_at', ascending: false);
+        if (profilesData.isNotEmpty) {
+          final liveUsers = (profilesData as List).map((p) {
+            final role = p['role'] as String? ?? 'reporter';
+            return AdminUserModel(
+              id: p['id'] as String,
+              name: p['display_name'] as String? ?? 'Pengguna',
+              maskedEmail: '${(p['display_name'] as String? ?? 'user').toLowerCase().replaceAll(' ', '.')}@coastwatch.id',
+              primaryRegion: role == 'cleaner' ? 'Relawan Pesisir' : (role == 'admin' ? 'Admin Operasional' : 'Pelapor Warga'),
+              joinedDate: DateTime.tryParse(p['created_at'] as String? ?? '') ?? DateTime.now(),
+              validReportsCount: 0,
+              rejectedReportsCount: 0,
+              validityRate: 1.0,
+              isVerifiedRelawan: role == 'cleaner',
+              isSuspended: !(p['is_active'] as bool? ?? true),
+            );
+          }).toList();
+          _adminUsers = liveUsers;
+          debugPrint('[ReportService] Synced ${_adminUsers.length} profiles from Supabase cloud.');
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('[ReportService] Profiles sync note: $e');
+      }
+
+      // 4. Audit Logs
+      try {
+        final logsData = await client
+            .from('audit_logs')
+            .select()
+            .order('created_at', ascending: false);
+        if (logsData.isNotEmpty) {
+          final liveLogs = (logsData as List).map((l) {
+            final target = l['target_id'] != null
+                ? '#${l['target_id'].toString().substring(0, 8)}'
+                : '-';
+            return AdminAuditLogModel(
+              id: l['id'] as String,
+              timestamp: DateTime.tryParse(l['created_at'] as String? ?? '') ?? DateTime.now(),
+              adminName: 'Admin',
+              actionType: l['action'] as String? ?? 'AUDIT',
+              targetId: target,
+              targetLocation: 'Pesisir Lapangan',
+              summary: 'Aktivitas audit tercatat di database Supabase',
+            );
+          }).toList();
+          _auditLogs = liveLogs;
+          debugPrint('[ReportService] Synced ${_auditLogs.length} audit logs from Supabase cloud.');
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('[ReportService] Audit log sync note: $e');
+      }
+    }
+  }
 
   // ================= ADMIN COUNTS & STATS =================
   int get pendingReportsCount => _reports.where((r) => r.status == ReportStatus.pendingReview).length;
@@ -117,8 +225,7 @@ class ReportService extends ChangeNotifier {
       }
 
       final now = DateTime.now();
-      final reportNum = (_reports.length + 1).toString().padLeft(5, '0');
-      final reportId = 'CW-${now.year}-$reportNum';
+      final reportId = _uuid.v4();
       final currentUser = _authService.currentUser;
 
       final photoUrl = photoFile.path;
@@ -156,6 +263,28 @@ class ReportService extends ChangeNotifier {
       );
 
       _reports.insert(0, newReport);
+
+      // Sinkronkan ke database Supabase jika online & terautentikasi
+      final client = SupabaseService().client;
+      if (client != null && SupabaseService().isInitialized && _authService.isAuthenticated) {
+        try {
+          await client.from('reports').insert({
+            'id': reportId,
+            'client_submission_id': newReport.clientSubmissionId,
+            'reporter_id': currentUser.id,
+            'category_id': categoryId,
+            'description': description.trim(),
+            'latitude': latitude,
+            'longitude': longitude,
+            'exif_datetime_original': photoTimestamp.toIso8601String(),
+            'device_location_accuracy_m': accuracy,
+            'status': newReport.status.value,
+          });
+          debugPrint('[ReportService] Report successfully saved to Supabase cloud!');
+        } catch (e) {
+          debugPrint('[ReportService] Supabase insert note: $e');
+        }
+      }
       _isLoading = false;
       notifyListeners();
       return newReport;
@@ -215,6 +344,33 @@ class ReportService extends ChangeNotifier {
       ),
     );
 
+    // Sinkronisasi status verifikasi ke cloud Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').update({
+          'status': 'verified',
+        }).eq('id', reportId);
+
+        if (_authService.isAuthenticated) {
+          await client.from('report_reviews').insert({
+            'report_id': reportId,
+            'admin_id': adminUser.id,
+            'decision': 'verified',
+            'notes': notes ?? 'Verifikasi disetujui admin',
+          });
+          await client.from('audit_logs').insert({
+            'actor_id': adminUser.id,
+            'action': 'VERIFIKASI LAPORAN',
+            'target_id': reportId,
+          });
+        }
+        debugPrint('[ReportService] adminVerifyReport berhasil disinkronkan ke Supabase cloud.');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase verify sync note: $e');
+      }
+    }
+
     notifyListeners();
     return true;
   }
@@ -271,6 +427,33 @@ class ReportService extends ChangeNotifier {
       ),
     );
 
+    // Sinkronisasi status tolak ke cloud Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').update({
+          'status': 'rejected',
+        }).eq('id', reportId);
+
+        if (_authService.isAuthenticated) {
+          await client.from('report_reviews').insert({
+            'report_id': reportId,
+            'admin_id': adminUser.id,
+            'decision': 'rejected',
+            'notes': reason.trim(),
+          });
+          await client.from('audit_logs').insert({
+            'actor_id': adminUser.id,
+            'action': 'TOLAK LAPORAN',
+            'target_id': reportId,
+          });
+        }
+        debugPrint('[ReportService] adminRejectReport berhasil disinkronkan ke Supabase cloud.');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase reject sync note: $e');
+      }
+    }
+
     notifyListeners();
     return true;
   }
@@ -321,6 +504,33 @@ class ReportService extends ChangeNotifier {
         spatialDistanceMeters: 4.8,
       ),
     );
+
+    // Sinkronisasi status duplikat ke cloud Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').update({
+          'status': 'duplicate',
+        }).eq('id', reportId);
+
+        if (_authService.isAuthenticated) {
+          await client.from('report_reviews').insert({
+            'report_id': reportId,
+            'admin_id': adminUser.id,
+            'decision': 'duplicate',
+            'notes': notes ?? 'Duplikat tiket #$cleanRefId',
+          });
+          await client.from('audit_logs').insert({
+            'actor_id': adminUser.id,
+            'action': 'TANDAI DUPLIKAT',
+            'target_id': reportId,
+          });
+        }
+        debugPrint('[ReportService] adminMarkDuplicate berhasil disinkronkan ke Supabase cloud.');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase duplicate sync note: $e');
+      }
+    }
 
     notifyListeners();
     return true;
@@ -465,7 +675,7 @@ class ReportService extends ChangeNotifier {
     required String code,
     required String description,
   }) {
-    final newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
+    final newId = _uuid.v4();
     final now = DateTime.now();
     _categories.add(CategoryModel(
       id: newId,
@@ -478,6 +688,24 @@ class ReportService extends ChangeNotifier {
       isActive: true,
     ));
     notifyListeners();
+
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        client.from('report_categories').insert({
+          'id': newId,
+          'name': name.trim(),
+          'description': description.trim(),
+          'is_active': true,
+        }).then((_) {
+          debugPrint('[ReportService] Kategori berhasil disimpan ke Supabase cloud: $name');
+        }).catchError((e) {
+          debugPrint('[ReportService] Supabase addCategory error: $e');
+        });
+      } catch (e) {
+        debugPrint('[ReportService] Supabase addCategory error: $e');
+      }
+    }
   }
 
   /// Update an existing category
@@ -489,6 +717,21 @@ class ReportService extends ChangeNotifier {
         updatedDate: '${now.day} Okt ${now.year}',
       );
       notifyListeners();
+
+      final client = SupabaseService().client;
+      if (client != null && SupabaseService().isInitialized) {
+        try {
+          client.from('report_categories').update({
+            'name': updated.name,
+            'description': updated.description,
+            'is_active': updated.isActive,
+          }).eq('id', updated.id).catchError((e) {
+            debugPrint('[ReportService] Supabase updateCategory error: $e');
+          });
+        } catch (e) {
+          debugPrint('[ReportService] Supabase updateCategory error: $e');
+        }
+      }
     }
   }
 
@@ -498,11 +741,25 @@ class ReportService extends ChangeNotifier {
     if (idx != -1) {
       final current = _categories[idx];
       final now = DateTime.now();
+      final newStatus = !current.isActive;
       _categories[idx] = current.copyWith(
-        isActive: !current.isActive,
+        isActive: newStatus,
         updatedDate: '${now.day} Okt ${now.year}',
       );
       notifyListeners();
+
+      final client = SupabaseService().client;
+      if (client != null && SupabaseService().isInitialized) {
+        try {
+          client.from('report_categories').update({
+            'is_active': newStatus,
+          }).eq('id', id).catchError((e) {
+            debugPrint('[ReportService] Supabase toggleCategoryActive error: $e');
+          });
+        } catch (e) {
+          debugPrint('[ReportService] Supabase toggleCategoryActive error: $e');
+        }
+      }
     }
   }
 
@@ -510,5 +767,16 @@ class ReportService extends ChangeNotifier {
   void deleteCategory(String id) {
     _categories.removeWhere((c) => c.id == id);
     notifyListeners();
+
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        client.from('report_categories').delete().eq('id', id).catchError((e) {
+          debugPrint('[ReportService] Supabase deleteCategory error: $e');
+        });
+      } catch (e) {
+        debugPrint('[ReportService] Supabase deleteCategory error: $e');
+      }
+    }
   }
 }

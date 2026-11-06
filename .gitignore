@@ -50,3 +50,8 @@ app.*.map.json
 
 # UI/UX reference design assets
 uiux/
+
+# Agent skills and tools
+.agents/
+skills-lock.json
+

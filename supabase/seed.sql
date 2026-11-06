@@ -1,19 +1,19 @@
 -- ====================================================================
--- COASTWATCH: Seed Data Master Kategori Pesisir
--- Mengacu pada desain.md Bab 10.1
+-- COASTWATCH: Seed Data Master Kategori Pesisir (UUID)
+-- Sesuai ERD Lampiran 2
 -- ====================================================================
 
-INSERT INTO public.report_categories (id, name, description, is_active, sort_order)
+INSERT INTO public.report_categories (id, name, description, is_active)
 VALUES
-    ('plastic', 'Sampah plastik', 'Botol, kantong kresek, kemasan sachet, styrofoam, dan fragmen plastik yang terlihat di pesisir.', true, 1),
-    ('household', 'Sampah rumah tangga/campuran', 'Sampah campuran rumah tangga yang menumpuk di garis pantai atau muara sungai.', true, 2),
-    ('fishing', 'Alat tangkap dan limbah perikanan', 'Jaring terbengkalai (ghost net), tali tambang kapal, pelampung, atau alat tangkap rusak.', true, 3),
-    ('liquid', 'Limbah cair atau indikasi pencemaran', 'Lapisan minyak, buih mencurigakan, atau perubahan warna air laut yang mencolok.', true, 4),
-    ('organic', 'Sampah organik', 'Tumpukan sisa tumbuhan, kayu gelondongan hanyut, atau bahan organik yang mengotori pantai.', true, 5),
-    ('ecosystem', 'Kerusakan ekosistem pesisir', 'Indikasi kerusakan vegetasi mangrove, terumbu karang terdampar, atau abrasi abnormal.', true, 6),
-    ('other', 'Lainnya', 'Masalah pesisir di luar kategori utama (wajib menyertakan deskripsi rinci).', true, 7)
+    ('c0000000-0000-0000-0000-000000000001', 'Sampah plastik', 'Botol, kantong kresek, kemasan sachet, styrofoam, dan fragmen plastik yang terlihat di pesisir.', true),
+    ('c0000000-0000-0000-0000-000000000002', 'Sampah rumah tangga/campuran', 'Sampah campuran rumah tangga yang menumpuk di garis pantai atau muara sungai.', true),
+    ('c0000000-0000-0000-0000-000000000003', 'Alat tangkap dan limbah perikanan', 'Jaring terbengkalai (ghost net), tali tambang kapal, pelampung, atau alat tangkap rusak.', true),
+    ('c0000000-0000-0000-0000-000000000004', 'Limbah cair atau indikasi pencemaran', 'Lapisan minyak, buih mencurigakan, atau perubahan warna air laut yang mencolok.', true),
+    ('c0000000-0000-0000-0000-000000000005', 'Sampah organik', 'Tumpukan sisa tumbuhan, kayu gelondongan hanyut, atau bahan organik yang mengotori pantai.', true),
+    ('c0000000-0000-0000-0000-000000000006', 'Kerusakan ekosistem pesisir', 'Indikasi kerusakan vegetasi mangrove, terumbu karang terdampar, atau abrasi abnormal.', true),
+    ('c0000000-0000-0000-0000-000000000007', 'Lainnya', 'Masalah pesisir di luar kategori utama (wajib menyertakan deskripsi rinci).', true)
 ON CONFLICT (id) DO UPDATE 
 SET 
     name = EXCLUDED.name,
     description = EXCLUDED.description,
-    sort_order = EXCLUDED.sort_order;
+    is_active = EXCLUDED.is_active;
