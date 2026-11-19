@@ -14,6 +14,8 @@ class AppConstants {
   // Validation Limits
   static const int maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
   static const double maxAccuracyThresholdMeters = 50.0; // Warnings if > 50m
+  static const double maxCleanerProximityMeters = 50.0; // Max radius for cleaner claim & proof (50m)
+  static const double duplicateReportRadiusMeters = 10.0; // Radius pencegahan laporan duplikat pelapor (10m)
 
   // Default Map Coordinates (Pesisir Kepulauan Riau / Pesisir Indonesia)
   static const double defaultLatitude = 1.1304;
@@ -74,12 +76,13 @@ extension UserRoleExtension on UserRole {
 }
 
 enum ReportStatus {
-  pendingReview, // Menunggu Verifikasi
-  verified,      // Terverifikasi
-  inProgress,    // Sedang Ditangani
-  cleaned,       // Selesai Dibersihkan
-  rejected,      // Ditolak
-  duplicate,     // Duplikat
+  pendingReview,        // Menunggu Verifikasi Laporan Awal
+  verified,             // Terverifikasi (Siap Diambil Relawan)
+  inProgress,           // Sedang Dibersihkan Relawan
+  pendingCleanupReview, // Menunggu Validasi Hasil Pembersihan oleh Admin
+  cleaned,              // Selesai Dibersihkan (Disahkan Admin)
+  rejected,             // Ditolak
+  duplicate,            // Duplikat
 }
 
 extension ReportStatusExtension on ReportStatus {
@@ -91,6 +94,8 @@ extension ReportStatusExtension on ReportStatus {
         return 'verified';
       case ReportStatus.inProgress:
         return 'in_progress';
+      case ReportStatus.pendingCleanupReview:
+        return 'pending_cleanup';
       case ReportStatus.cleaned:
         return 'cleaned';
       case ReportStatus.rejected:
@@ -107,7 +112,9 @@ extension ReportStatusExtension on ReportStatus {
       case ReportStatus.verified:
         return 'Terverifikasi';
       case ReportStatus.inProgress:
-        return 'Sedang Ditangani';
+        return 'Sedang Dibersihkan';
+      case ReportStatus.pendingCleanupReview:
+        return 'Menunggu Validasi Pembersihan';
       case ReportStatus.cleaned:
         return 'Selesai Dibersihkan';
       case ReportStatus.rejected:
@@ -124,7 +131,9 @@ extension ReportStatusExtension on ReportStatus {
       case ReportStatus.verified:
         return const Color(0xFF2F4156); // CoastWatch Navy
       case ReportStatus.inProgress:
-        return const Color(0xFF1D4ED8); // Blue
+        return const Color(0xFFC2410C); // Dark Orange / Amber
+      case ReportStatus.pendingCleanupReview:
+        return const Color(0xFF6D28D9); // Purple
       case ReportStatus.cleaned:
         return const Color(0xFF15803D); // Green
       case ReportStatus.rejected:
@@ -141,7 +150,9 @@ extension ReportStatusExtension on ReportStatus {
       case ReportStatus.verified:
         return const Color(0xFFC8D9E6); // Sky Blue
       case ReportStatus.inProgress:
-        return const Color(0xFFDBEAFE); // Soft Blue
+        return const Color(0xFFFFEDD5); // Soft Orange
+      case ReportStatus.pendingCleanupReview:
+        return const Color(0xFFEDE9FE); // Soft Purple
       case ReportStatus.cleaned:
         return const Color(0xFFDCFCE7); // Soft Green
       case ReportStatus.rejected:
@@ -159,6 +170,8 @@ extension ReportStatusExtension on ReportStatus {
         return Icons.verified_rounded;
       case ReportStatus.inProgress:
         return Icons.cleaning_services_rounded;
+      case ReportStatus.pendingCleanupReview:
+        return Icons.fact_check_outlined;
       case ReportStatus.cleaned:
         return Icons.task_alt_rounded;
       case ReportStatus.rejected:
@@ -176,6 +189,9 @@ extension ReportStatusExtension on ReportStatus {
         return ReportStatus.verified;
       case 'in_progress':
         return ReportStatus.inProgress;
+      case 'pending_cleanup':
+      case 'pending_cleanup_review':
+        return ReportStatus.pendingCleanupReview;
       case 'cleaned':
         return ReportStatus.cleaned;
       case 'rejected':

@@ -69,8 +69,8 @@ class LocationService {
 
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 3),
         ),
       );
 
@@ -107,5 +107,29 @@ class LocationService {
     if (lng < -180 || lng > 180) return false;
     if (lat == 0.0 && lng == 0.0) return false; // Suspicious null island
     return true;
+  }
+
+  /// Calculate spatial distance in meters between two coordinates using WGS84 ellipsoid
+  static double calculateDistanceMeters(double lat1, double lng1, double lat2, double lng2) {
+    return Geolocator.distanceBetween(lat1, lng1, lat2, lng2);
+  }
+
+  /// Check whether cleaner is within proximity radius (default: 50m) of target report coordinate
+  static bool isWithinProximity(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2, {
+    double maxMeters = AppConstants.maxCleanerProximityMeters,
+  }) {
+    return calculateDistanceMeters(lat1, lng1, lat2, lng2) <= maxMeters;
+  }
+
+  /// Helper to format distance nicely (e.g. "25 m" or "1.4 km")
+  static String formatDistance(double meters) {
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)} meter';
+    }
+    return '${(meters / 1000).toStringAsFixed(1)} km';
   }
 }

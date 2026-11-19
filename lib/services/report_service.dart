@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants.dart';
@@ -8,6 +9,7 @@ import '../models/category_model.dart';
 import '../models/cleanup_task_model.dart';
 import '../models/report_model.dart';
 import '../models/status_history_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
 import 'location_service.dart';
 import 'mock_data_service.dart';
@@ -25,6 +27,14 @@ class ReportService extends ChangeNotifier {
 
   final AuthService _authService = AuthService();
   final _uuid = const Uuid();
+
+  void resetToMockData() {
+    _reports = MockDataService.getInitialMockReports();
+    _auditLogs = MockDataService.getInitialAuditLogs();
+    _adminUsers = MockDataService.getInitialAdminUsers();
+    _categories = List.from(CategoryModel.defaultCategories);
+    notifyListeners();
+  }
 
   List<ReportModel> _reports = [];
   List<ReportModel> get reports => List.unmodifiable(_reports);
@@ -68,7 +78,7 @@ class ReportService extends ChangeNotifier {
       try {
         final reportsData = await client
             .from('reports')
-            .select()
+            .select('*, report_media(*), report_cleanups(*), report_status_history(*)')
             .order('created_at', ascending: false);
         if (reportsData.isNotEmpty) {
           final liveReports = (reportsData as List).map((r) {
@@ -76,14 +86,72 @@ class ReportService extends ChangeNotifier {
               (c) => c.id == r['category_id'],
               orElse: () => CategoryModel.defaultCategories.first,
             );
+            final mediaList = (r['report_media'] as List?) ?? [];
+            Map<String, dynamic>? beforeMedia;
+            Map<String, dynamic>? afterMedia;
+            for (final m in mediaList) {
+              if (m is Map<String, dynamic>) {
+                if (m['media_role'] == 'before') beforeMedia = m;
+                if (m['media_role'] == 'after') afterMedia = m;
+              }
+            }
+            String beforeUrl = beforeMedia?['storage_key_public'] as String? ??
+                beforeMedia?['storage_key_original'] as String? ??
+                '';
+            if (beforeUrl.isEmpty) {
+              beforeUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e';
+            }
+            final afterUrl = afterMedia?['storage_key_public'] as String? ??
+                afterMedia?['storage_key_original'] as String? ??
+                '';
+
+            // Parse cleanups dari database Supabase
+            CleanupTaskModel? cleanupTask;
+            final cleanupsList = (r['report_cleanups'] as List?) ?? [];
+            if (cleanupsList.isNotEmpty) {
+              final lastCleanup = cleanupsList.last as Map<String, dynamic>;
+              final isTaskCompleted = r['status'] == 'cleaned' || lastCleanup['completed_at'] != null;
+              cleanupTask = CleanupTaskModel(
+                id: lastCleanup['id'] as String? ?? 'cln-task',
+                reportId: r['id'] as String,
+                cleanerId: lastCleanup['cleaner_id'] as String? ?? 'd0000000-0000-0000-0000-000000000002',
+                cleanerName: 'Budi Relawan Pembersih',
+                notes: lastCleanup['notes'] as String?,
+                cleanupLat: (lastCleanup['cleanup_lat'] as num?)?.toDouble(),
+                cleanupLng: (lastCleanup['cleanup_lng'] as num?)?.toDouble(),
+                startedAt: DateTime.tryParse(lastCleanup['started_at'] as String? ?? '') ?? DateTime.now(),
+                completedAt: DateTime.tryParse(lastCleanup['completed_at'] as String? ?? ''),
+                status: isTaskCompleted ? 'completed' : 'in_progress',
+                afterPhotoUrl: afterUrl.isNotEmpty ? afterUrl : null,
+                createdAt: DateTime.tryParse(lastCleanup['started_at'] as String? ?? '') ?? DateTime.now(),
+              );
+            }
+
+            // Parse status history
+            final historyList = (r['report_status_history'] as List?) ?? [];
+            final statusHistory = historyList.map((h) {
+              return StatusHistoryModel(
+                id: h['id'] as String? ?? '',
+                reportId: r['id'] as String,
+                fromStatus: h['from_status'] != null ? ReportStatusExtension.fromString(h['from_status'] as String?) : null,
+                toStatus: ReportStatusExtension.fromString(h['to_status'] as String?),
+                actorName: 'Relawan / Admin',
+                reason: h['reason'] as String?,
+                createdAt: DateTime.tryParse(h['created_at'] as String? ?? '') ?? DateTime.now(),
+              );
+            }).toList();
+
             return ReportModel.fromJson({
               ...r,
               'category_name': cat.name,
-              'before_photo_url': r['before_photo_url'] ?? '',
+              'before_photo_url': beforeUrl,
+              'after_photo_url': afterUrl.isNotEmpty ? afterUrl : null,
+              'cleanup_task': cleanupTask?.toJson(),
+              'status_history': statusHistory.map((s) => s.toJson()).toList(),
             });
           }).toList();
           _reports = liveReports;
-          debugPrint('[ReportService] Synced ${liveReports.length} reports from Supabase cloud.');
+          debugPrint('[ReportService] Synced ${liveReports.length} reports with cleanups from Supabase cloud.');
           notifyListeners();
         }
       } catch (e) {
@@ -153,15 +221,31 @@ class ReportService extends ChangeNotifier {
 
   // ================= ADMIN COUNTS & STATS =================
   int get pendingReportsCount => _reports.where((r) => r.status == ReportStatus.pendingReview).length;
+  int get pendingCleanupCount => _reports.where((r) => r.status == ReportStatus.pendingCleanupReview).length;
   int get verifiedReportsCount => _reports.where((r) => r.status == ReportStatus.verified).length;
   int get rejectedReportsCount => _reports.where((r) => r.status == ReportStatus.rejected).length;
   int get duplicateReportsCount => _reports.where((r) => r.status == ReportStatus.duplicate).length;
   int get totalReportsCount => _reports.length;
 
-  /// Fetch public reports (Strictly verified only on public map as per Desain.md Section 6.4 & 15.5)
-  List<ReportModel> getPublicReports({String? categoryId, DateTimeRange? dateRange}) {
+  /// Fetch public reports (Verified and InProgress by default; Cleaned included if showCleaned is true)
+  List<ReportModel> getPublicReports({
+    String? categoryId,
+    DateTimeRange? dateRange,
+    bool showCleaned = false,
+  }) {
     return _reports.where((r) {
-      if (!r.isPubliclyVisible) return false;
+      if (r.visibility != 'public') return false;
+
+      // Filter status:
+      // Default: verified, in_progress, pending_cleanup (menunggu validasi pembersihan)
+      // Jika showCleaned true: tampilkan juga status cleaned (riwayat pantai bersih)
+      final bool isEligible = r.status == ReportStatus.verified ||
+          r.status == ReportStatus.inProgress ||
+          r.status == ReportStatus.pendingCleanupReview ||
+          (showCleaned && r.status == ReportStatus.cleaned);
+
+      if (!isEligible) return false;
+
       if (categoryId != null && categoryId.isNotEmpty && r.categoryId != categoryId) {
         return false;
       }
@@ -178,7 +262,15 @@ class ReportService extends ChangeNotifier {
   List<ReportModel> getMyReports() {
     final user = _authService.currentUser;
     if (user.isGuest) return [];
-    return _reports.where((r) => r.reporterId == user.id || r.reporterName == user.displayName).toList();
+    return _reports.where((r) {
+      if (r.reporterId == user.id) return true;
+      if (r.reporterName == user.displayName) return true;
+      if (user.role == UserRole.reporter &&
+          (r.reporterId == 'd0000000-0000-0000-0000-000000000003' || r.reporterId == 'rep-001')) {
+        return true;
+      }
+      return false;
+    }).toList();
   }
 
   /// Get verified reports available for cleaners to claim (Desain.md Section 6.5 & 8.7)
@@ -190,7 +282,16 @@ class ReportService extends ChangeNotifier {
   List<ReportModel> getMyTasks() {
     final user = _authService.currentUser;
     if (user.isGuest) return [];
-    return _reports.where((r) => r.cleanupTask?.cleanerId == user.id).toList();
+    return _reports.where((r) {
+      if (r.cleanupTask == null) return false;
+      if (r.cleanupTask!.cleanerId == user.id) return true;
+      if (user.role == UserRole.cleaner &&
+          (r.cleanupTask!.cleanerId == 'd0000000-0000-0000-0000-000000000002' ||
+           r.cleanupTask!.cleanerId == 'cln-001')) {
+        return true;
+      }
+      return false;
+    }).toList();
   }
 
   /// Get single report by ID
@@ -202,9 +303,40 @@ class ReportService extends ChangeNotifier {
     }
   }
 
+  /// Mencari laporan aktif terdekat dalam radius toleransi (default 10 meter)
+  /// Mengabaikan laporan yang sudah berstatus 'cleaned', 'rejected', atau 'duplicate'
+  ReportModel? findNearbyActiveReport(
+    double latitude,
+    double longitude, {
+    double radiusMeters = AppConstants.duplicateReportRadiusMeters,
+  }) {
+    for (final report in _reports) {
+      if (report.status == ReportStatus.cleaned ||
+          report.status == ReportStatus.rejected ||
+          report.status == ReportStatus.duplicate) {
+        continue;
+      }
+
+      final distance = LocationService.calculateDistanceMeters(
+        latitude,
+        longitude,
+        report.latitude,
+        report.longitude,
+      );
+
+      if (distance <= radiusMeters) {
+        return report;
+      }
+    }
+    return null;
+  }
+
   /// Submit new report with verified geotag (Desain.md Section 6.2 & 15.6)
   Future<ReportModel> submitReport({
-    required File photoFile,
+    File? photoFile,
+    dynamic photoXFile,
+    Uint8List? photoBytes,
+    String? photoPath,
     required String categoryId,
     required String categoryName,
     required String description,
@@ -213,22 +345,91 @@ class ReportService extends ChangeNotifier {
     required double accuracy,
     required DateTime photoTimestamp,
     String? locationName,
+    bool bypassDuplicateCheck = false,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // Server-side / local validation check
+      // 1. Server-side / local coordinate validation check
       if (!LocationService.validateCoordinates(latitude, longitude)) {
         throw Exception('Koordinat GPS tidak valid (lat: $latitude, lng: $longitude).');
+      }
+
+      // 2. Validasi pencegahan laporan duplikat dalam radius 10 meter
+      if (!bypassDuplicateCheck) {
+        final existingReport = findNearbyActiveReport(
+          latitude,
+          longitude,
+          radiusMeters: AppConstants.duplicateReportRadiusMeters,
+        );
+        if (existingReport != null) {
+          final distance = LocationService.calculateDistanceMeters(
+            latitude,
+            longitude,
+            existingReport.latitude,
+            existingReport.longitude,
+          );
+          throw Exception(
+            'Titik lokasi ini sudah dilaporkan sebelumnya berjarak ${distance.toStringAsFixed(1)}m '
+            '(ID: ${existingReport.id}, Status: ${existingReport.status.label}). '
+            'Laporan ganda dalam radius 10 meter tidak diizinkan karena sedang dalam penanganan.',
+          );
+        }
       }
 
       final now = DateTime.now();
       final reportId = _uuid.v4();
       final currentUser = _authService.currentUser;
 
-      final photoUrl = photoFile.path;
+      final client = SupabaseService().client;
+
+      String photoUrl = photoPath ?? '';
+      if (photoUrl.isEmpty && photoFile != null) {
+        photoUrl = photoFile.path;
+      }
+      if (photoUrl.isEmpty && photoXFile != null) {
+        try {
+          photoUrl = (photoXFile.path as String?) ?? '';
+        } catch (_) {}
+      }
+      if (photoUrl.isEmpty) {
+        photoUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e';
+      }
+
+      // 1. Upload foto bukti ke Supabase Storage (Bucket 'reports') jika terhubung
+      if (client != null && SupabaseService().isInitialized) {
+        try {
+          Uint8List? bytes = photoBytes;
+          if (bytes == null && photoXFile != null) {
+            bytes = await photoXFile.readAsBytes();
+          } else if (bytes == null && photoFile != null) {
+            bytes = await photoFile.readAsBytes();
+          }
+
+          if (bytes != null) {
+            final fileName = 'report_${reportId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+            try {
+              await client.storage.from('reports').uploadBinary(
+                fileName,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              );
+              final publicUrl = client.storage.from('reports').getPublicUrl(fileName);
+              photoUrl = publicUrl;
+              debugPrint('[ReportService] Upload foto ke Supabase Storage BERHASIL: $publicUrl');
+            } catch (storageErr) {
+              debugPrint('[ReportService] Supabase Storage upload note (bucket may need creation in Dashboard): $storageErr');
+            }
+          }
+        } catch (e) {
+          debugPrint('[ReportService] Read bytes error: $e');
+        }
+      }
 
       final newReport = ReportModel(
         id: reportId,
@@ -264,14 +465,19 @@ class ReportService extends ChangeNotifier {
 
       _reports.insert(0, newReport);
 
-      // Sinkronkan ke database Supabase jika online & terautentikasi
-      final client = SupabaseService().client;
-      if (client != null && SupabaseService().isInitialized && _authService.isAuthenticated) {
+      // Sinkronkan ke database Supabase jika online
+      if (client != null && SupabaseService().isInitialized) {
         try {
+          String validReporterId = currentUser.id;
+          final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(validReporterId);
+          if (!isUuid) {
+            validReporterId = 'd0000000-0000-0000-0000-000000000003'; // Default reporter profile
+          }
+
           await client.from('reports').insert({
             'id': reportId,
             'client_submission_id': newReport.clientSubmissionId,
-            'reporter_id': currentUser.id,
+            'reporter_id': validReporterId,
             'category_id': categoryId,
             'description': description.trim(),
             'latitude': latitude,
@@ -280,6 +486,20 @@ class ReportService extends ChangeNotifier {
             'device_location_accuracy_m': accuracy,
             'status': newReport.status.value,
           });
+
+          // Simpan juga ke tabel report_media sesuai ERD Lampiran 2
+          try {
+            await client.from('report_media').insert({
+              'report_id': reportId,
+              'media_role': 'before',
+              'storage_key_original': photoUrl,
+              'storage_key_public': photoUrl,
+              'mime_type': 'image/jpeg',
+            });
+          } catch (mErr) {
+            debugPrint('[ReportService] report_media insert note: $mErr');
+          }
+
           debugPrint('[ReportService] Report successfully saved to Supabase cloud!');
         } catch (e) {
           debugPrint('[ReportService] Supabase insert note: $e');
@@ -561,8 +781,14 @@ class ReportService extends ChangeNotifier {
 
   // ================= CLEANER TASKS =================
 
-  /// Cleaner claims a verified task (Desain.md Section 6.5)
-  Future<bool> claimTask(String reportId, {String? notes}) async {
+  /// Cleaner claims a verified task (Desain.md Section 6.5) with proximity check
+  Future<bool> claimTask(
+    String reportId, {
+    String? notes,
+    double? cleanerLat,
+    double? cleanerLng,
+    bool bypassProximity = false,
+  }) async {
     final index = _reports.indexWhere((r) => r.id == reportId);
     if (index == -1) return false;
 
@@ -571,14 +797,37 @@ class ReportService extends ChangeNotifier {
       throw Exception('Tugas ini sudah diambil oleh relawan lain atau tidak tersedia.');
     }
 
+    // Proximity check: Cleaner must be within 50m of beach trash site
+    if (cleanerLat != null && cleanerLng != null && !bypassProximity) {
+      final distance = LocationService.calculateDistanceMeters(
+        cleanerLat,
+        cleanerLng,
+        report.latitude,
+        report.longitude,
+      );
+      if (distance > AppConstants.maxCleanerProximityMeters) {
+        throw Exception(
+          'Lokasi Anda berjarak ${LocationService.formatDistance(distance)} dari titik pantai. Tugas hanya dapat diambil jika berada di radius ${AppConstants.maxCleanerProximityMeters.toStringAsFixed(0)} meter dari lokasi sampah.',
+        );
+      }
+    }
+
     final user = _authService.currentUser;
     final now = DateTime.now();
+    final taskId = _uuid.v4();
+
+    String validCleanerId = user.id;
+    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(validCleanerId);
+    if (!isUuid) {
+      validCleanerId = 'd0000000-0000-0000-0000-000000000002'; // Budi Santoso (Relawan) di public.profiles
+    }
+
     final task = CleanupTaskModel(
-      id: 'tsk-${_uuid.v4()}',
+      id: taskId,
       reportId: reportId,
-      cleanerId: user.id,
-      cleanerName: user.displayName,
-      notes: notes ?? 'Tugas pembersihan diambil.',
+      cleanerId: validCleanerId,
+      cleanerName: user.displayName.isNotEmpty ? user.displayName : 'Budi Relawan Pembersih',
+      notes: notes ?? 'Tugas pembersihan diambil oleh relawan.',
       startedAt: now,
       status: 'in_progress',
       createdAt: now,
@@ -595,8 +844,284 @@ class ReportService extends ChangeNotifier {
           reportId: reportId,
           fromStatus: ReportStatus.verified,
           toStatus: ReportStatus.inProgress,
-          actorName: user.displayName,
-          reason: 'Tugas pembersihan diklaim oleh relawan',
+          actorName: user.displayName.isNotEmpty ? user.displayName : 'Relawan',
+          reason: notes ?? 'Tugas pembersihan diklaim oleh relawan di lokasi',
+          createdAt: now,
+        ),
+      ],
+    );
+
+    _reports[index] = updatedReport;
+    notifyListeners();
+
+    // Sinkronkan ke cloud Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        // 1. Update status laporan menjadi in_progress
+        await client.from('reports').update({
+          'status': 'in_progress',
+        }).eq('id', reportId);
+
+        // 2. Insert ke report_cleanups
+        try {
+          await client.from('report_cleanups').insert({
+            'id': taskId,
+            'report_id': reportId,
+            'cleaner_id': validCleanerId,
+            'notes': notes ?? 'Tugas pembersihan diambil oleh relawan.',
+            'started_at': now.toIso8601String(),
+          });
+        } catch (cErr) {
+          debugPrint('[ReportService] report_cleanups insert note: $cErr');
+        }
+
+        // 3. Catat di report_status_history
+        try {
+          await client.from('report_status_history').insert({
+            'report_id': reportId,
+            'actor_id': validCleanerId,
+            'from_status': 'verified',
+            'to_status': 'in_progress',
+            'reason': notes ?? 'Tugas pembersihan diklaim oleh relawan di lokasi',
+            'created_at': now.toIso8601String(),
+          });
+        } catch (hErr) {
+          debugPrint('[ReportService] report_status_history insert note: $hErr');
+        }
+
+        debugPrint('[ReportService] claimTask berhasil disinkronkan ke Supabase cloud!');
+      } catch (e) {
+        debugPrint('[ReportService] claimTask Supabase sync error: $e');
+      }
+    }
+
+    return true;
+  }
+
+  /// Relawan memulai aksi pembersihan fisik di lapangan setelah tiba di titik pesisir
+  Future<bool> startFieldWork(String reportId) async {
+    final index = _reports.indexWhere((r) => r.id == reportId);
+    if (index == -1) return false;
+
+    final report = _reports[index];
+    if (report.cleanupTask == null) return false;
+
+    final now = DateTime.now();
+    final updatedTask = report.cleanupTask!.copyWith(
+      fieldWorkStartedAt: now,
+    );
+
+    final updatedReport = report.copyWith(
+      cleanupTask: updatedTask,
+      updatedAt: now,
+    );
+
+    _reports[index] = updatedReport;
+    notifyListeners();
+    return true;
+  }
+
+  /// Cleaner completes a task with after-photo geotag proof, moving it to pendingCleanupReview
+  Future<bool> completeCleanupTask({
+    required String reportId,
+    File? proofPhotoFile,
+    dynamic proofPhotoXFile,
+    String? proofPhotoPath,
+    required String notes,
+    required double cleanupLat,
+    required double cleanupLng,
+    required DateTime cleanupTimestamp,
+    int sackCount = 1,
+    bool bypassProximity = false,
+  }) async {
+    final index = _reports.indexWhere((r) => r.id == reportId);
+    if (index == -1) return false;
+
+    final report = _reports[index];
+    final user = _authService.currentUser;
+
+    final isAuthorized = report.cleanupTask != null &&
+        (report.cleanupTask?.cleanerId == user.id ||
+            user.role == UserRole.cleaner ||
+            report.cleanupTask?.cleanerId == 'd0000000-0000-0000-0000-000000000002');
+
+    if (!isAuthorized) {
+      throw Exception('Anda bukan pemegang sah dari tugas pembersihan ini.');
+    }
+
+    if (!LocationService.validateCoordinates(cleanupLat, cleanupLng)) {
+      throw Exception('Foto bukti pembersihan tidak memiliki koordinat GPS yang sah.');
+    }
+
+    // Proximity check on the proof photo
+    if (!bypassProximity) {
+      final distance = LocationService.calculateDistanceMeters(
+        cleanupLat,
+        cleanupLng,
+        report.latitude,
+        report.longitude,
+      );
+      if (distance > AppConstants.maxCleanerProximityMeters) {
+        throw Exception(
+          'Foto bukti pembersihan berjarak ${LocationService.formatDistance(distance)} dari titik awal sampah. Foto bukti wajib diambil di lokasi pantai (radius maksimal ${AppConstants.maxCleanerProximityMeters.toStringAsFixed(0)} meter).',
+        );
+      }
+    }
+
+    final now = DateTime.now();
+    final client = SupabaseService().client;
+    String proofUrl = proofPhotoPath ?? '';
+
+    // Upload foto bukti sesudah bersih ke Supabase Storage (Bucket 'reports')
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        Uint8List? bytes;
+        if (proofPhotoXFile != null) {
+          bytes = await proofPhotoXFile.readAsBytes();
+        } else if (proofPhotoFile != null) {
+          bytes = await proofPhotoFile.readAsBytes();
+        }
+
+        if (bytes != null) {
+          final fileName = 'cleanup_${reportId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          try {
+            await client.storage.from('reports').uploadBinary(
+              fileName,
+              bytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/jpeg',
+                upsert: true,
+              ),
+            );
+            final publicUrl = client.storage.from('reports').getPublicUrl(fileName);
+            proofUrl = publicUrl;
+            debugPrint('[ReportService] Upload bukti pembersihan ke Supabase Storage BERHASIL: $publicUrl');
+          } catch (storageErr) {
+            debugPrint('[ReportService] Supabase Storage cleanup upload note: $storageErr');
+          }
+        }
+      } catch (e) {
+        debugPrint('[ReportService] Read cleanup bytes error: $e');
+      }
+    }
+
+    if (proofUrl.isEmpty && proofPhotoFile != null) {
+      proofUrl = proofPhotoFile.path;
+    }
+    if (proofUrl.isEmpty && proofPhotoXFile != null) {
+      try {
+        proofUrl = (proofPhotoXFile.path as String?) ?? '';
+      } catch (_) {}
+    }
+    if (proofUrl.isEmpty) {
+      proofUrl = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5';
+    }
+
+    String validCleanerId = user.id;
+    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(validCleanerId);
+    if (!isUuid) {
+      validCleanerId = 'd0000000-0000-0000-0000-000000000002'; // Budi Relawan
+    }
+
+    // Sinkronkan ke tabel reports, report_cleanups, dan report_media di Supabase
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        // 1. Update atau insert report_cleanups
+        try {
+          final existing = await client
+              .from('report_cleanups')
+              .select('id')
+              .eq('report_id', reportId)
+              .maybeSingle();
+
+          if (existing != null) {
+            await client.from('report_cleanups').update({
+              'notes': notes.trim(),
+              'cleanup_lat': cleanupLat,
+              'cleanup_lng': cleanupLng,
+              'completed_at': now.toIso8601String(),
+            }).eq('report_id', reportId);
+          } else {
+            await client.from('report_cleanups').insert({
+              'report_id': reportId,
+              'cleaner_id': validCleanerId,
+              'notes': notes.trim(),
+              'cleanup_lat': cleanupLat,
+              'cleanup_lng': cleanupLng,
+              'started_at': now.subtract(const Duration(hours: 1)).toIso8601String(),
+              'completed_at': now.toIso8601String(),
+            });
+          }
+        } catch (cErr) {
+          debugPrint('[ReportService] report_cleanups upsert note: $cErr');
+        }
+
+        // 2. Simpan media sesudah pembersihan ke report_media
+        try {
+          await client.from('report_media').insert({
+            'report_id': reportId,
+            'media_role': 'after',
+            'storage_key_original': proofUrl,
+            'storage_key_public': proofUrl,
+            'mime_type': 'image/jpeg',
+          });
+        } catch (mErr) {
+          debugPrint('[ReportService] report_media after note: $mErr');
+        }
+
+        // 3. Update status laporan ke pending_cleanup (menunggu validasi admin)
+        try {
+          await client.from('reports').update({
+            'status': ReportStatus.pendingCleanupReview.value,
+          }).eq('id', reportId);
+        } catch (uErr) {
+          debugPrint('[ReportService] update report pending_cleanup note: $uErr');
+        }
+
+        // 4. Catat di report_status_history
+        try {
+          await client.from('report_status_history').insert({
+            'report_id': reportId,
+            'actor_id': validCleanerId,
+            'from_status': 'in_progress',
+            'to_status': 'pending_cleanup',
+            'reason': 'Foto bukti pembersihan diunggah oleh relawan, menunggu validasi admin',
+            'created_at': now.toIso8601String(),
+          });
+        } catch (hErr) {
+          debugPrint('[ReportService] report_status_history pending_cleanup note: $hErr');
+        }
+      } catch (e) {
+        debugPrint('[ReportService] completeCleanupTask sync note: $e');
+      }
+    }
+
+    final updatedTask = report.cleanupTask!.copyWith(
+      notes: notes.trim(),
+      cleanupLat: cleanupLat,
+      cleanupLng: cleanupLng,
+      cleanupExifDateTimeOriginal: cleanupTimestamp,
+      completedAt: now,
+      status: 'completed',
+      afterPhotoUrl: proofUrl,
+      sackCount: sackCount,
+    );
+
+    final updatedReport = report.copyWith(
+      status: ReportStatus.pendingCleanupReview,
+      afterPhotoUrl: proofUrl,
+      cleanupTask: updatedTask,
+      updatedAt: now,
+      statusHistory: [
+        ...report.statusHistory,
+        StatusHistoryModel(
+          id: 'sh-${_uuid.v4()}',
+          reportId: reportId,
+          fromStatus: ReportStatus.inProgress,
+          toStatus: ReportStatus.pendingCleanupReview,
+          actorName: user.displayName.isNotEmpty ? user.displayName : 'Budi Relawan Pembersih',
+          reason: 'Foto bukti pembersihan diunggah oleh relawan, menunggu validasi admin',
           createdAt: now,
         ),
       ],
@@ -607,62 +1132,161 @@ class ReportService extends ChangeNotifier {
     return true;
   }
 
-  /// Cleaner completes a task with after-photo geotag proof (Desain.md Section 6.5 & 8.7)
-  Future<bool> completeCleanupTask({
-    required String reportId,
-    required File proofPhotoFile,
-    required String notes,
-    required double cleanupLat,
-    required double cleanupLng,
-    required DateTime cleanupTimestamp,
-  }) async {
+  // ================= ADMIN CLEANUP VERIFICATION (STAGE 2) =================
+
+  /// Admin approves the cleanup proof after comparing Before vs After photos
+  Future<bool> adminApproveCleanup(String reportId, {String? notes}) async {
     final index = _reports.indexWhere((r) => r.id == reportId);
     if (index == -1) return false;
 
     final report = _reports[index];
-    final user = _authService.currentUser;
-
-    if (report.cleanupTask == null || report.cleanupTask?.cleanerId != user.id) {
-      throw Exception('Anda bukan pemegang sah dari tugas pembersihan ini.');
-    }
-
-    if (!LocationService.validateCoordinates(cleanupLat, cleanupLng)) {
-      throw Exception('Foto bukti pembersihan tidak memiliki koordinat GPS yang sah.');
-    }
-
     final now = DateTime.now();
-    final proofUrl = proofPhotoFile.path;
-
-    final updatedTask = report.cleanupTask!.copyWith(
-      notes: notes.trim(),
-      cleanupLat: cleanupLat,
-      cleanupLng: cleanupLng,
-      cleanupExifDateTimeOriginal: cleanupTimestamp,
-      completedAt: now,
-      status: 'completed',
-      afterPhotoUrl: proofUrl,
-    );
+    final adminUser = _authService.currentUser;
+    final adminName = adminUser.displayName.isNotEmpty ? adminUser.displayName : 'Budi Santoso';
 
     final updatedReport = report.copyWith(
       status: ReportStatus.cleaned,
-      afterPhotoUrl: proofUrl,
-      cleanupTask: updatedTask,
       updatedAt: now,
       statusHistory: [
         ...report.statusHistory,
         StatusHistoryModel(
           id: 'sh-${_uuid.v4()}',
           reportId: reportId,
-          fromStatus: ReportStatus.inProgress,
+          fromStatus: report.status,
           toStatus: ReportStatus.cleaned,
-          actorName: user.displayName,
-          reason: 'Pembersihan selesai dengan unggahan bukti foto geotag sesudah pembersihan',
+          actorName: '$adminName (Admin Operasional)',
+          reason: notes ?? 'Hasil pembersihan disahkan oleh Admin Operasional setelah verifikasi foto Sebelum vs Sesudah.',
           createdAt: now,
         ),
       ],
     );
 
     _reports[index] = updatedReport;
+
+    // Append to audit log
+    _auditLogs.insert(
+      0,
+      AdminAuditLogModel(
+        id: 'aud-${_uuid.v4()}',
+        timestamp: now,
+        adminName: adminName,
+        actionType: 'SAHKAN PEMBERSIHAN',
+        targetId: '#${report.id}',
+        targetLocation: report.locationName ?? 'Pesisir Lapangan',
+        summary: 'Pembersihan pantai disahkan oleh admin. Foto Sebelum vs Sesudah terverifikasi bersih.',
+        coordinates: '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
+        hash: 'sha256-clean-${report.id.toLowerCase()}',
+      ),
+    );
+
+    // Sync to Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').update({
+          'status': 'cleaned',
+        }).eq('id', reportId);
+
+        if (_authService.isAuthenticated) {
+          await client.from('report_reviews').insert({
+            'report_id': reportId,
+            'admin_id': adminUser.id,
+            'decision': 'cleanup_approved',
+            'notes': notes ?? 'Pembersihan disahkan oleh admin',
+          });
+          await client.from('audit_logs').insert({
+            'actor_id': adminUser.id,
+            'action': 'SAHKAN PEMBERSIHAN',
+            'target_id': reportId,
+          });
+        }
+        debugPrint('[ReportService] adminApproveCleanup berhasil disinkronkan ke Supabase cloud!');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase adminApproveCleanup sync error: $e');
+      }
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Admin rejects the cleanup proof if the beach is still dirty or photo invalid
+  Future<bool> adminRejectCleanup(String reportId, {required String reason}) async {
+    if (reason.trim().isEmpty) {
+      throw Exception('Alasan penolakan hasil pembersihan wajib diisi.');
+    }
+
+    final index = _reports.indexWhere((r) => r.id == reportId);
+    if (index == -1) return false;
+
+    final report = _reports[index];
+    final now = DateTime.now();
+    final adminUser = _authService.currentUser;
+    final adminName = adminUser.displayName.isNotEmpty ? adminUser.displayName : 'Budi Santoso';
+
+    final updatedReport = report.copyWith(
+      status: ReportStatus.inProgress, // Returned to in_progress so volunteer can re-clean
+      updatedAt: now,
+      statusHistory: [
+        ...report.statusHistory,
+        StatusHistoryModel(
+          id: 'sh-${_uuid.v4()}',
+          reportId: reportId,
+          fromStatus: report.status,
+          toStatus: ReportStatus.inProgress,
+          actorName: '$adminName (Admin Operasional)',
+          reason: 'Hasil pembersihan ditolak admin: ${reason.trim()}',
+          createdAt: now,
+        ),
+      ],
+    );
+
+    _reports[index] = updatedReport;
+
+    // Append to audit log
+    _auditLogs.insert(
+      0,
+      AdminAuditLogModel(
+        id: 'aud-${_uuid.v4()}',
+        timestamp: now,
+        adminName: adminName,
+        actionType: 'TOLAK BUKTI BERSIH',
+        targetId: '#${report.id}',
+        targetLocation: report.locationName ?? 'Pesisir Lapangan',
+        summary: 'Alasan: ${reason.trim()}',
+        rejectionReason: reason.trim(),
+        warningBadge: 'Minta Pembersihan Ulang',
+        hash: 'sha256-rejclean-${report.id.toLowerCase()}',
+      ),
+    );
+
+    // Sync to Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').update({
+          'status': 'in_progress',
+        }).eq('id', reportId);
+
+        if (_authService.isAuthenticated) {
+          await client.from('report_reviews').insert({
+            'report_id': reportId,
+            'admin_id': adminUser.id,
+            'decision': 'cleanup_rejected',
+            'notes': reason.trim(),
+          });
+          await client.from('audit_logs').insert({
+            'actor_id': adminUser.id,
+            'action': 'TOLAK BUKTI BERSIH',
+            'target_id': reportId,
+          });
+        }
+        debugPrint('[ReportService] adminRejectCleanup berhasil disinkronkan ke Supabase cloud!');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase adminRejectCleanup sync error: $e');
+      }
+    }
+
     notifyListeners();
     return true;
   }

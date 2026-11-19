@@ -9,21 +9,21 @@ import '../models/user_profile_model.dart';
 class MockDataService {
   static final List<UserProfileModel> mockUsers = [
     UserProfileModel(
-      id: 'rep-001',
+      id: 'd0000000-0000-0000-0000-000000000003',
       email: 'pelapor@coastwatch.id',
       displayName: 'Arya Pelapor Pesisir',
       role: UserRole.reporter,
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
     ),
     UserProfileModel(
-      id: 'cln-001',
+      id: 'd0000000-0000-0000-0000-000000000002',
       email: 'relawan@coastwatch.id',
       displayName: 'Budi Relawan Pembersih',
       role: UserRole.cleaner,
       createdAt: DateTime.now().subtract(const Duration(days: 45)),
     ),
     UserProfileModel(
-      id: 'adm-001',
+      id: 'd0000000-0000-0000-0000-000000000001',
       email: 'admin@coastwatch.id',
       displayName: 'Budi Santoso',
       role: UserRole.admin,
@@ -413,7 +413,7 @@ class MockDataService {
         cleanupTask: CleanupTaskModel(
           id: 'tsk-001',
           reportId: 'CW-2024-002',
-          cleanerId: 'cln-001',
+          cleanerId: 'd0000000-0000-0000-0000-000000000002',
           cleanerName: 'Budi Relawan Pembersih',
           notes: 'Tugas diambil. Sedang menyiapkan peralatan pemotong jaring bersama tim lokal.',
           startedAt: now.subtract(const Duration(hours: 5)),
@@ -446,7 +446,7 @@ class MockDataService {
         cleanupTask: CleanupTaskModel(
           id: 'tsk-002',
           reportId: 'CW-2024-003',
-          cleanerId: 'cln-001',
+          cleanerId: 'd0000000-0000-0000-0000-000000000002',
           cleanerName: 'Budi Relawan Pembersih',
           notes: 'Area dermaga berhasil dibersihkan bersama 3 karung sampah terangkut ke TPS terdekat.',
           cleanupLat: 1.1122,

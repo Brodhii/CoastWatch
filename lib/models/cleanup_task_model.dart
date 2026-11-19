@@ -8,9 +8,11 @@ class CleanupTaskModel {
   final double? cleanupLng;
   final DateTime? cleanupExifDateTimeOriginal;
   final DateTime startedAt;
+  final DateTime? fieldWorkStartedAt;
   final DateTime? completedAt;
   final String status; // 'in_progress', 'completed'
   final String? afterPhotoUrl;
+  final int? sackCount;
   final DateTime createdAt;
 
   const CleanupTaskModel({
@@ -23,9 +25,11 @@ class CleanupTaskModel {
     this.cleanupLng,
     this.cleanupExifDateTimeOriginal,
     required this.startedAt,
+    this.fieldWorkStartedAt,
     this.completedAt,
     required this.status,
     this.afterPhotoUrl,
+    this.sackCount,
     required this.createdAt,
   });
 
@@ -46,11 +50,15 @@ class CleanupTaskModel {
       startedAt: json['started_at'] != null
           ? DateTime.parse(json['started_at'] as String)
           : DateTime.now(),
+      fieldWorkStartedAt: json['field_work_started_at'] != null
+          ? DateTime.parse(json['field_work_started_at'] as String)
+          : null,
       completedAt: json['completed_at'] != null
           ? DateTime.parse(json['completed_at'] as String)
           : null,
       status: json['status'] as String? ?? 'in_progress',
       afterPhotoUrl: json['after_photo_url'] as String?,
+      sackCount: json['sack_count'] as int?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -68,9 +76,11 @@ class CleanupTaskModel {
       'cleanup_lng': cleanupLng,
       'cleanup_exif_datetime_original': cleanupExifDateTimeOriginal?.toIso8601String(),
       'started_at': startedAt.toIso8601String(),
+      'field_work_started_at': fieldWorkStartedAt?.toIso8601String(),
       'completed_at': completedAt?.toIso8601String(),
       'status': status,
       'after_photo_url': afterPhotoUrl,
+      'sack_count': sackCount,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -85,9 +95,11 @@ class CleanupTaskModel {
     double? cleanupLng,
     DateTime? cleanupExifDateTimeOriginal,
     DateTime? startedAt,
+    DateTime? fieldWorkStartedAt,
     DateTime? completedAt,
     String? status,
     String? afterPhotoUrl,
+    int? sackCount,
     DateTime? createdAt,
   }) {
     return CleanupTaskModel(
@@ -100,9 +112,11 @@ class CleanupTaskModel {
       cleanupLng: cleanupLng ?? this.cleanupLng,
       cleanupExifDateTimeOriginal: cleanupExifDateTimeOriginal ?? this.cleanupExifDateTimeOriginal,
       startedAt: startedAt ?? this.startedAt,
+      fieldWorkStartedAt: fieldWorkStartedAt ?? this.fieldWorkStartedAt,
       completedAt: completedAt ?? this.completedAt,
       status: status ?? this.status,
       afterPhotoUrl: afterPhotoUrl ?? this.afterPhotoUrl,
+      sackCount: sackCount ?? this.sackCount,
       createdAt: createdAt ?? this.createdAt,
     );
   }

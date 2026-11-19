@@ -53,11 +53,22 @@ class ReportModel {
     required this.updatedAt,
   });
 
-  bool get isPubliclyVisible => status == ReportStatus.verified && visibility == 'public';
-  bool get isAvailableForCleanup => status == ReportStatus.verified && cleanupTask == null;
+  bool get isPubliclyVisible =>
+      (status == ReportStatus.verified ||
+          status == ReportStatus.inProgress ||
+          status == ReportStatus.pendingCleanupReview) &&
+      visibility == 'public';
+  bool get isAvailableForCleanup =>
+      status == ReportStatus.verified && cleanupTask == null;
   bool get isInProgress => status == ReportStatus.inProgress;
+  bool get isPendingCleanupReview =>
+      status == ReportStatus.pendingCleanupReview;
   bool get isCleaned => status == ReportStatus.cleaned;
   bool get isPendingReview => status == ReportStatus.pendingReview;
+  String? get cleanerNotes => cleanupTask?.notes;
+  String? get cleanerName => cleanupTask?.cleanerName;
+  int? get sackCount => cleanupTask?.sackCount;
+  bool get isFieldWorkActive => cleanupTask?.fieldWorkStartedAt != null;
 
   String get formattedCoordinates {
     final latDir = latitude >= 0 ? 'N' : 'S';

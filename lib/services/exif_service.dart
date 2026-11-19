@@ -36,9 +36,40 @@ class ExifService {
   ExifService._internal();
 
   /// Reads EXIF metadata from file and extracts GPS coordinates + DateTimeOriginal
-  Future<ExifDataResult> extractExifData(File imageFile, {LocationResult? fallbackLocation}) async {
+  Future<ExifDataResult> extractExifData(dynamic imageFileOrBytes, {LocationResult? fallbackLocation}) async {
     try {
-      final bytes = await imageFile.readAsBytes();
+      Uint8List bytes;
+      if (imageFileOrBytes is Uint8List) {
+        bytes = imageFileOrBytes;
+      } else if (imageFileOrBytes is File) {
+        bytes = await imageFileOrBytes.readAsBytes();
+      } else if (imageFileOrBytes != null && imageFileOrBytes.readAsBytes != null) {
+        bytes = await imageFileOrBytes.readAsBytes() as Uint8List;
+      } else {
+        throw Exception('Invalid image data type provided.');
+      }
+      return await extractExifFromBytes(bytes, fallbackLocation: fallbackLocation);
+    } catch (e) {
+      debugPrint('[ExifService] Error extracting EXIF: $e');
+      if (fallbackLocation != null) {
+        return ExifDataResult(
+          latitude: fallbackLocation.latitude,
+          longitude: fallbackLocation.longitude,
+          dateTimeOriginal: fallbackLocation.timestamp,
+          hasGps: true,
+          statusMessage: 'Geotag berhasil diproses dari koordinat pemotretan.',
+        );
+      }
+      return ExifDataResult(
+        hasGps: false,
+        statusMessage: 'Gagal membaca metadata EXIF: $e',
+      );
+    }
+  }
+
+  /// Reads EXIF metadata from byte array and extracts GPS coordinates + DateTimeOriginal
+  Future<ExifDataResult> extractExifFromBytes(Uint8List bytes, {LocationResult? fallbackLocation}) async {
+    try {
       final data = await readExifFromBytes(bytes);
 
       if (data.isEmpty) {

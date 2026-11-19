@@ -18,8 +18,8 @@ class AppTheme {
   static const Color statusPendingBg = Color(0xFFFEF3C7);
   static const Color statusVerified = Color(0xFF0284C7);
   static const Color statusVerifiedBg = Color(0xFFE0F2FE);
-  static const Color statusInProgress = Color(0xFF2563EB);
-  static const Color statusInProgressBg = Color(0xFFDBEAFE);
+  static const Color statusInProgress = Color(0xFFC2410C);
+  static const Color statusInProgressBg = Color(0xFFFFEDD5);
   static const Color statusCleaned = Color(0xFF16A34A);
   static const Color statusCleanedBg = Color(0xFFDCFCE7);
   static const Color statusRejected = Color(0xFFDC2626);
