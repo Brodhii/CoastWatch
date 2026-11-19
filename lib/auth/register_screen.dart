@@ -66,15 +66,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoutes.initial,
-        (route) => false,
-      );
+      if (_authService.isAuthenticated) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.initial,
+          (route) => false,
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pendaftaran berhasil! Silakan masuk dengan akun Anda.'),
+            backgroundColor: AppTheme.navy,
+          ),
+        );
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+      }
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Pendaftaran gagal. Silakan coba kembali.';
+        _errorMessage = _authService.lastAuthError ?? 'Pendaftaran gagal. Silakan coba kembali.';
       });
     }
   }

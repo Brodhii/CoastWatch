@@ -57,7 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Login gagal. Periksa kembali username/email dan kata sandi Anda.';
+        _errorMessage = _authService.lastAuthError ??
+            'Login gagal. Periksa kembali username/email dan kata sandi Anda.';
       });
     }
   }
@@ -115,36 +116,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     onTap: () {
                       setState(() {
                         _emailController.text = 'admin';
-                        _passwordController.text = 'admin123';
+                        _passwordController.text = 'password';
                       });
                     },
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 2),
-                      child: Text('• Admin: admin / admin123', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
+                      child: Text('• Admin: admin / password', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
                     ),
                   ),
                   InkWell(
                     onTap: () {
                       setState(() {
                         _emailController.text = 'relawan';
-                        _passwordController.text = 'password123';
+                        _passwordController.text = 'password';
                       });
                     },
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 2),
-                      child: Text('• Relawan: relawan / password123', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
+                      child: Text('• Relawan: relawan / password', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
                     ),
                   ),
                   InkWell(
                     onTap: () {
                       setState(() {
                         _emailController.text = 'pelapor';
-                        _passwordController.text = 'password123';
+                        _passwordController.text = 'password';
                       });
                     },
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 2),
-                      child: Text('• Pelapor: pelapor / password123', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
+                      child: Text('• Pelapor: pelapor / password', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
