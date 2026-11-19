@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants.dart';
 import '../../../models/report_model.dart';
 import '../../../services/report_service.dart';
+import '../widgets/admin_action_button.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   final ValueChanged<String> onNavigateToReview;
@@ -306,20 +307,22 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 
   // DESKTOP TABLE
+  static const double _tableMinWidth = 900;
+
   Widget _buildDesktopTable(List<ReportModel> reports) {
-    return Column(
+    final table = Column(
       children: [
         Container(
           color: const Color(0xFFF8FAFC),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: const Row(
             children: [
-              SizedBox(width: 50, child: Text('FOTO', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Text('ID TIKET', style: _colHeaderStyle)),
-              Expanded(flex: 3, child: Text('KATEGORI & DESKRIPSI', style: _colHeaderStyle)),
-              Expanded(flex: 2, child: Text('LOKASI PESISIR', style: _colHeaderStyle)),
-              SizedBox(width: 120, child: Text('WAKTU', style: _colHeaderStyle)),
-              SizedBox(width: 100, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
+              SizedBox(width: 76, child: Text('FOTO', style: _colHeaderStyle)),
+              SizedBox(width: 130, child: Text('ID TIKET', style: _colHeaderStyle)),
+              Expanded(flex: 4, child: Text('KATEGORI & DESKRIPSI', style: _colHeaderStyle)),
+              Expanded(flex: 3, child: Text('LOKASI PESISIR', style: _colHeaderStyle)),
+              SizedBox(width: 140, child: Text('WAKTU', style: _colHeaderStyle)),
+              SizedBox(width: 140, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
             ],
           ),
         ),
@@ -359,6 +362,17 @@ class AdminDashboardScreen extends StatelessWidget {
         ),
       ],
     );
+
+    // Jika area sempit, tabel bisa digeser horizontal agar tidak overflow.
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= _tableMinWidth) return table;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: _tableMinWidth, child: table),
+        );
+      },
+    );
   }
 
   Widget _buildRow({
@@ -370,70 +384,89 @@ class AdminDashboardScreen extends StatelessWidget {
     required String time,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 50,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Image.network(imageUrl, width: 40, height: 32, fit: BoxFit.cover),
+            width: 76,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  imageUrl,
+                  width: 56,
+                  height: 44,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(width: 56, height: 44, color: const Color(0xFFE2E8F0)),
+                ),
+              ),
             ),
           ),
           SizedBox(
-            width: 90,
+            width: 130,
             child: Text(
               reportId,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(
             flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  category,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                ),
-                Text(
-                  description,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              location,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Text(
+                location,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+              ),
             ),
           ),
           SizedBox(
-            width: 120,
+            width: 140,
             child: Text(
               time,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ),
           SizedBox(
-            width: 100,
+            width: 140,
             child: Align(
               alignment: Alignment.centerRight,
-              child: ElevatedButton(
+              child: AdminActionButton(
+                label: 'Buka Verifikasi',
+                tone: AdminButtonTone.primary,
+                minWidth: 124,
                 onPressed: () => onNavigateToReview(reportId),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F172A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                child: const Text('Periksa', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
               ),
             ),
           ),
@@ -490,19 +523,11 @@ class AdminDashboardScreen extends StatelessWidget {
                       maxLines: 2,
                     ),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => onNavigateToReview(report.id),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: const Text('Periksa Bukti', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                      ),
+                    AdminActionButton(
+                      label: 'Buka Verifikasi',
+                      tone: AdminButtonTone.primary,
+                      expand: true,
+                      onPressed: () => onNavigateToReview(report.id),
                     ),
                   ],
                 ),
@@ -686,9 +711,9 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 
   static const TextStyle _colHeaderStyle = TextStyle(
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: FontWeight.w700,
     color: Color(0xFF64748B),
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   );
 }

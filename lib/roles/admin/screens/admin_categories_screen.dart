@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/category_model.dart';
 import '../../../services/report_service.dart';
+import '../widgets/admin_action_button.dart';
 
 class AdminCategoriesScreen extends StatefulWidget {
   const AdminCategoriesScreen({super.key});
@@ -119,20 +120,22 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
     );
   }
 
+  static const double _tableMinWidth = 900;
+
   Widget _buildDesktopCategoryTable(List<CategoryModel> categories) {
-    return Column(
+    final table = Column(
       children: [
         Container(
           color: const Color(0xFFF8FAFC),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: const Row(
             children: [
-              SizedBox(width: 40, child: Text('NO', style: _colHeaderStyle)),
+              SizedBox(width: 48, child: Text('NO', style: _colHeaderStyle)),
               Expanded(flex: 3, child: Text('NAMA KATEGORI & KODE', style: _colHeaderStyle)),
               Expanded(flex: 5, child: Text('DESKRIPSI & CAKUPAN TEMUAN', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Text('TOTAL LAPORAN', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Text('STATUS', style: _colHeaderStyle)),
-              SizedBox(width: 170, child: Align(alignment: Alignment.centerRight, child: Text('PENGELOLAAN', style: _colHeaderStyle))),
+              SizedBox(width: 110, child: Text('TOTAL LAPORAN', style: _colHeaderStyle)),
+              SizedBox(width: 110, child: Text('STATUS', style: _colHeaderStyle)),
+              SizedBox(width: 250, child: Align(alignment: Alignment.centerRight, child: Text('PENGELOLAAN', style: _colHeaderStyle))),
             ],
           ),
         ),
@@ -142,87 +145,75 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
           final cat = entry.value;
 
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            constraints: const BoxConstraints(minHeight: 64),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 40,
-                  child: Text(index.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF64748B))),
+                  width: 48,
+                  child: Text(index.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: Color(0xFF64748B))),
                 ),
                 Expanded(
                   flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(cat.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                      Text(cat.code, style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF64748B))),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cat.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                        const SizedBox(height: 2),
+                        Text(cat.code, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF64748B))),
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(
                   flex: 5,
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Text(cat.description, style: const TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.35)),
-                  ),
-                ),
-                SizedBox(
-                  width: 90,
-                  child: Text('${cat.reportCount} Lap.', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                ),
-                SizedBox(
-                  width: 90,
-                  child: Text(
-                    cat.isActive ? 'Aktif' : 'Nonaktif',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: cat.isActive ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Text(
+                      cat.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
                     ),
                   ),
                 ),
                 SizedBox(
-                  width: 170,
+                  width: 110,
+                  child: Text('${cat.reportCount} Lap.', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                ),
+                SizedBox(
+                  width: 110,
+                  child: Align(alignment: Alignment.centerLeft, child: _buildStatusBadge(cat.isActive)),
+                ),
+                SizedBox(
+                  width: 250,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      OutlinedButton(
+                      AdminActionButton(
+                        label: 'Edit',
+                        minWidth: 62,
                         onPressed: () => _showEditCategoryDialog(cat),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0F172A),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: const Text('Edit', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
                       ),
-                      const SizedBox(width: 4),
-                      OutlinedButton(
+                      const SizedBox(width: 8),
+                      AdminActionButton(
+                        label: cat.isActive ? 'Nonaktif' : 'Aktifkan',
+                        minWidth: 84,
+                        tone: cat.isActive ? AdminButtonTone.warning : AdminButtonTone.success,
                         onPressed: () => _toggleCategoryStatus(cat),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: cat.isActive ? const Color(0xFFD97706) : const Color(0xFF16A34A),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: Text(cat.isActive ? 'Nonaktif' : 'Aktifkan', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
                       ),
-                      const SizedBox(width: 4),
-                      OutlinedButton(
+                      const SizedBox(width: 8),
+                      AdminActionButton(
+                        label: 'Hapus',
+                        minWidth: 66,
+                        tone: AdminButtonTone.danger,
                         onPressed: () => _confirmDeleteCategory(cat),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFDC2626),
-                          side: const BorderSide(color: Color(0xFFFCA5A5)),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: const Text('Hapus', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ),
@@ -233,15 +224,37 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
         }),
       ],
     );
+
+    // Jika area sempit, tabel bisa digeser horizontal agar tidak overflow.
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= _tableMinWidth) return table;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: _tableMinWidth, child: table),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusBadge(bool isActive) {
+    final fg = isActive ? const Color(0xFF15803D) : const Color(0xFF64748B);
+    final bg = isActive ? const Color(0xFFF0FDF4) : const Color(0xFFF1F5F9);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child: Text(
+        isActive ? 'Aktif' : 'Nonaktif',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
+      ),
+    );
   }
 
   Widget _buildMobileCategoryCards(List<CategoryModel> categories) {
     return Column(
-      children: categories.asMap().entries.map((entry) {
-        final cat = entry.value;
-
+      children: categories.map((cat) {
         return Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
           ),
@@ -249,51 +262,52 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(cat.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                  Text(cat.code, style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF64748B))),
+                  Expanded(
+                    child: Text(cat.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(cat.code, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF64748B))),
                 ],
               ),
-              const SizedBox(height: 2),
-              Text(cat.description, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              Text(cat.description, style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4)),
+              const SizedBox(height: 10),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${cat.reportCount} Laporan • ${cat.isActive ? "Aktif" : "Nonaktif"}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: cat.isActive ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                  _buildStatusBadge(cat.isActive),
+                  const SizedBox(width: 8),
+                  Text('${cat.reportCount} Laporan', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: AdminActionButton(
+                      label: 'Edit',
+                      expand: true,
+                      onPressed: () => _showEditCategoryDialog(cat),
                     ),
                   ),
-                  Row(
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => _showEditCategoryDialog(cat),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: const Text('Edit', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(width: 4),
-                      OutlinedButton(
-                        onPressed: () => _confirmDeleteCategory(cat),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFDC2626),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          side: const BorderSide(color: Color(0xFFFCA5A5)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: const Text('Hapus', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: AdminActionButton(
+                      label: cat.isActive ? 'Nonaktif' : 'Aktifkan',
+                      expand: true,
+                      tone: cat.isActive ? AdminButtonTone.warning : AdminButtonTone.success,
+                      onPressed: () => _toggleCategoryStatus(cat),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: AdminActionButton(
+                      label: 'Hapus',
+                      expand: true,
+                      tone: AdminButtonTone.danger,
+                      onPressed: () => _confirmDeleteCategory(cat),
+                    ),
                   ),
                 ],
               ),
@@ -524,9 +538,9 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
   }
 
   static const TextStyle _colHeaderStyle = TextStyle(
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: FontWeight.w700,
     color: Color(0xFF64748B),
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   );
 }

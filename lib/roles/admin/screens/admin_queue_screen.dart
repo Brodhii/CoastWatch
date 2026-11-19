@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants.dart';
 import '../../../models/report_model.dart';
 import '../../../services/report_service.dart';
+import '../widgets/admin_action_button.dart';
 
 class AdminQueueScreen extends StatefulWidget {
   final ValueChanged<String> onNavigateToReview;
@@ -259,9 +260,10 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
   }
 
   // DESKTOP QUEUE TABLE
-  // Ample width for Category so names are NEVER truncated with "..."
+  static const double _tableMinWidth = 940;
+
   Widget _buildDesktopQueueTable(List<ReportModel> reports) {
-    return Column(
+    final table = Column(
       children: [
         Container(
           color: const Color(0xFFF8FAFC),
@@ -280,13 +282,12 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                   });
                 },
               ),
-              const SizedBox(width: 44, child: Text('FOTO', style: _colHeaderStyle)),
-              const SizedBox(width: 90, child: Text('ID & WAKTU', style: _colHeaderStyle)),
-              // WIDE COLUMN FOR CATEGORY SO IT DOES NOT TRUNCATE WITH "..."
-              const SizedBox(width: 220, child: Text('KATEGORI TEMUAN', style: _colHeaderStyle)),
+              const SizedBox(width: 76, child: Text('FOTO', style: _colHeaderStyle)),
+              const SizedBox(width: 130, child: Text('ID & WAKTU', style: _colHeaderStyle)),
+              const SizedBox(width: 230, child: Text('KATEGORI TEMUAN', style: _colHeaderStyle)),
               const Expanded(flex: 3, child: Text('RINGKASAN DESKRIPSI', style: _colHeaderStyle)),
               const Expanded(flex: 2, child: Text('WILAYAH PESISIR', style: _colHeaderStyle)),
-              const SizedBox(width: 100, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
+              const SizedBox(width: 150, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
             ],
           ),
         ),
@@ -294,6 +295,17 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
 
         ...reports.map((report) => _buildDesktopQueueRow(report)),
       ],
+    );
+
+    // Jika area sempit, tabel bisa digeser horizontal agar tidak overflow.
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= _tableMinWidth) return table;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: _tableMinWidth, child: table),
+        );
+      },
     );
   }
 
@@ -303,7 +315,8 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
     return InkWell(
       onTap: () => widget.onNavigateToReview(report.id),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(minHeight: 68),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFF8FAFC) : Colors.transparent,
           border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
@@ -324,39 +337,49 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
               },
             ),
 
-            // Photo
+            // Foto
             SizedBox(
-              width: 44,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.network(report.beforePhotoUrl, width: 38, height: 28, fit: BoxFit.cover),
+              width: 76,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(
+                    report.beforePhotoUrl,
+                    width: 56,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(width: 56, height: 44, color: const Color(0xFFE2E8F0)),
+                  ),
+                ),
               ),
             ),
 
             // ID & Waktu
             SizedBox(
-              width: 90,
+              width: 130,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(report.id, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                  const Text('15 Okt 2024', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                  Text(report.id, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  const Text('15 Okt 2024', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
                 ],
               ),
             ),
 
-            // KATEGORI TEMUAN: Fully readable, no ellipsis (...), no background color
+            // Kategori temuan
             SizedBox(
-              width: 220,
+              width: 230,
               child: Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.only(right: 16),
                 child: Text(
                   report.categoryName,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF0F172A),
-                    height: 1.25,
+                    height: 1.3,
                   ),
                   maxLines: 2,
                 ),
@@ -367,40 +390,40 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.only(right: 16),
                 child: Text(
                   report.description,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.3),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
                   maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
 
-            // Wilayah Pesisir
+            // Wilayah pesisir
             Expanded(
               flex: 2,
-              child: Text(
-                report.locationName ?? 'Pesisir Lapangan',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
-                maxLines: 2,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text(
+                  report.locationName ?? 'Pesisir Lapangan',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
 
-            // Button
+            // Aksi
             SizedBox(
-              width: 100,
+              width: 150,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton(
+                child: AdminActionButton(
+                  label: 'Buka Verifikasi',
+                  tone: AdminButtonTone.primary,
+                  minWidth: 130,
                   onPressed: () => widget.onNavigateToReview(report.id),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
-                  child: const Text('Buka Verifikasi', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
@@ -490,18 +513,11 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton(
-                      onPressed: () => widget.onNavigateToReview(report.id),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      ),
-                      child: const Text('Buka Verifikasi', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                    ),
+                  AdminActionButton(
+                    label: 'Buka Verifikasi',
+                    tone: AdminButtonTone.primary,
+                    expand: true,
+                    onPressed: () => widget.onNavigateToReview(report.id),
                   ),
                 ],
               ),
@@ -534,9 +550,9 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
   }
 
   static const TextStyle _colHeaderStyle = TextStyle(
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: FontWeight.w700,
     color: Color(0xFF64748B),
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   );
 }
