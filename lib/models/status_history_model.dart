@@ -23,17 +23,17 @@ class StatusHistoryModel {
 
   factory StatusHistoryModel.fromJson(Map<String, dynamic> json) {
     return StatusHistoryModel(
-      id: json['id'] as String,
-      reportId: json['report_id'] as String,
+      id: json['id'] as String? ?? '',
+      reportId: json['report_id'] as String? ?? '',
       fromStatus: json['from_status'] != null
-          ? ReportStatusExtension.fromString(json['from_status'] as String)
+          ? ReportStatusExtension.fromString(json['from_status']?.toString())
           : null,
-      toStatus: ReportStatusExtension.fromString(json['to_status'] as String),
+      toStatus: ReportStatusExtension.fromString(json['to_status']?.toString()),
       actorId: json['actor_id'] as String?,
-      actorName: json['actor_name'] as String?,
+      actorName: json['actor_name'] as String? ?? 'Relawan / Admin',
       reason: json['reason'] as String?,
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now())
           : DateTime.now(),
     );
   }

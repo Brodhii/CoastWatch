@@ -8,21 +8,37 @@ import '../shared/empty_state_view.dart';
 import '../shared/guest_prompt_dialog.dart';
 import '../shared/report_card.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateTab;
 
   const HomeScreen({super.key, this.onNavigateTab});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final AuthService _authService = AuthService();
+  final ReportService _reportService = ReportService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_reportService.isCloudConnected) {
+        _reportService.refreshFromCloud();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    final reportService = ReportService();
-    final isGuest = authService.isGuest;
+    final isGuest = _authService.isGuest;
 
     return ListenableBuilder(
-      listenable: Listenable.merge([authService, reportService]),
+      listenable: Listenable.merge([_authService, _reportService]),
       builder: (context, _) {
-        final verifiedReports = reportService.getPublicReports();
+        final verifiedReports = _reportService.getPublicReports();
 
         return Scaffold(
           appBar: AppBar(
@@ -79,7 +95,7 @@ class HomeScreen extends StatelessWidget {
                         border: Border.all(color: AppTheme.teal.withValues(alpha: 0.3)),
                       ),
                       child: Text(
-                        authService.currentRole.label,
+                        _authService.currentRole.label,
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -94,12 +110,63 @@ class HomeScreen extends StatelessWidget {
           body: RefreshIndicator(
             color: AppTheme.teal,
             onRefresh: () async {
-              // Refresh state
-              await Future.delayed(const Duration(milliseconds: 500));
+              await _reportService.refreshFromCloud();
             },
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
+                // Cloud Database Connection Status Indicator
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _reportService.isCloudConnected
+                        ? const Color(0xFFECFDF5)
+                        : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _reportService.isCloudConnected
+                          ? const Color(0xFFA7F3D0)
+                          : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _reportService.isCloudConnected
+                            ? Icons.cloud_done_rounded
+                            : Icons.cloud_queue_rounded,
+                        size: 16,
+                        color: _reportService.isCloudConnected
+                            ? const Color(0xFF059669)
+                            : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _reportService.isCloudConnected
+                              ? 'Supabase Cloud Terhubung (${_reportService.reports.length} Laporan Sinkron)'
+                              : 'Menghubungkan ke Supabase Cloud... (Tarik ke bawah untuk sinkron)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _reportService.isCloudConnected
+                                ? const Color(0xFF065F46)
+                                : const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF475569)),
+                        onPressed: () => _reportService.refreshFromCloud(),
+                        tooltip: 'Sinkronkan Supabase',
+                      ),
+                    ],
+                  ),
+                ),
+
                 // 1. Header & Context Card
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -133,7 +200,7 @@ class HomeScreen extends StatelessWidget {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                if (authService.isGuest) {
+                                if (_authService.isGuest) {
                                   GuestPromptDialog.show(
                                     context,
                                     title: 'Kirim Laporan Pesisir',
@@ -160,8 +227,8 @@ class HomeScreen extends StatelessWidget {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                if (onNavigateTab != null) {
-                                  onNavigateTab!(1); // Navigate to Map tab
+                                if (widget.onNavigateTab != null) {
+                                  widget.onNavigateTab!(1); // Navigate to Map tab
                                 } else {
                                   Navigator.pushNamed(context, AppRoutes.initial);
                                 }
@@ -230,8 +297,8 @@ class HomeScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        if (onNavigateTab != null) {
-                          onNavigateTab!(1); // Go to map
+                        if (widget.onNavigateTab != null) {
+                          widget.onNavigateTab!(1); // Go to map
                         }
                       },
                       child: const Text('Lihat di Peta'),

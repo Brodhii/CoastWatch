@@ -49,11 +49,63 @@ class CleanerDashboardScreen extends StatelessWidget {
           body: RefreshIndicator(
             color: AppTheme.teal,
             onRefresh: () async {
-              await Future.delayed(const Duration(milliseconds: 400));
+              await reportService.refreshFromCloud();
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Cloud Database Connection Status Indicator
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: reportService.isCloudConnected
+                        ? const Color(0xFFECFDF5)
+                        : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: reportService.isCloudConnected
+                          ? const Color(0xFFA7F3D0)
+                          : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        reportService.isCloudConnected
+                            ? Icons.cloud_done_rounded
+                            : Icons.cloud_queue_rounded,
+                        size: 16,
+                        color: reportService.isCloudConnected
+                            ? const Color(0xFF059669)
+                            : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          reportService.isCloudConnected
+                              ? 'Supabase Cloud Terhubung (${availableTasks.length} Tugas Siap Diambil)'
+                              : 'Menghubungkan ke Cloud... (Tarik untuk sinkronkan)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: reportService.isCloudConnected
+                                ? const Color(0xFF065F46)
+                                : const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF475569)),
+                        onPressed: () => reportService.refreshFromCloud(),
+                        tooltip: 'Sinkronkan Supabase',
+                      ),
+                    ],
+                  ),
+                ),
+
                 // Active Tasks Banner (if any task is currently in progress)
                 if (inProgressTasks.isNotEmpty) ...[
                   ClipRRect(

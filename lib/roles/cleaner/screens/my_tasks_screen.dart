@@ -53,36 +53,46 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
               const Divider(height: 1),
 
               Expanded(
-                child: filteredTasks.isEmpty
-                    ? EmptyStateView(
-                        icon: Icons.cleaning_services_outlined,
-                        title: 'Belum Ada Tugas Aktif',
-                        message: 'Anda belum mengambil tugas pembersihan pesisir. Buka daftar tugas tersedia untuk mengambil aksi.',
-                        buttonLabel: 'Cari Tugas Tersedia',
-                        onButtonPressed: () {
-                          Navigator.pushNamed(context, AppRoutes.initial);
-                        },
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: filteredTasks.length,
-                        itemBuilder: (context, index) {
-                          final taskReport = filteredTasks[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: TaskCard(
-                              report: taskReport,
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.cleanerTaskDetail,
-                                  arguments: taskReport.id,
-                                );
+                child: RefreshIndicator(
+                  color: AppTheme.teal,
+                  onRefresh: () => _reportService.refreshFromCloud(),
+                  child: filteredTasks.isEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            const SizedBox(height: 40),
+                            EmptyStateView(
+                              icon: Icons.cleaning_services_outlined,
+                              title: 'Belum Ada Tugas Aktif',
+                              message: 'Anda belum mengambil tugas pembersihan pesisir. Buka daftar tugas tersedia untuk mengambil aksi.',
+                              buttonLabel: 'Cari Tugas Tersedia',
+                              onButtonPressed: () {
+                                Navigator.pushNamed(context, AppRoutes.initial);
                               },
                             ),
-                          );
-                        },
-                      ),
+                          ],
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredTasks.length,
+                          itemBuilder: (context, index) {
+                            final taskReport = filteredTasks[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: TaskCard(
+                                report: taskReport,
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.cleanerTaskDetail,
+                                    arguments: taskReport.id,
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ),
             ],
           ),

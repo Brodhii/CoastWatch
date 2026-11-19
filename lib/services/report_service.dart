@@ -51,13 +51,36 @@ class ReportService extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  bool _isCloudConnected = false;
+  bool get isCloudConnected => _isCloudConnected;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  /// Refresh manual atau pull-to-refresh dari cloud Supabase
+  Future<bool> refreshFromCloud() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      if (!SupabaseService().isInitialized) {
+        await SupabaseService().initialize();
+      }
+      await init();
+      _isLoading = false;
+      notifyListeners();
+      return _isCloudConnected;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
 
   /// Inisialisasi sinkronisasi data dari cloud Supabase saat aplikasi terbuka
   Future<void> init() async {
     final client = SupabaseService().client;
     if (client != null && SupabaseService().isInitialized) {
+      // 1. Categories
       try {
         final catData = await client
             .from('report_categories')
@@ -81,78 +104,89 @@ class ReportService extends ChangeNotifier {
             .select('*, report_media(*), report_cleanups(*), report_status_history(*)')
             .order('created_at', ascending: false);
         if (reportsData.isNotEmpty) {
-          final liveReports = (reportsData as List).map((r) {
-            final cat = _categories.firstWhere(
-              (c) => c.id == r['category_id'],
-              orElse: () => CategoryModel.defaultCategories.first,
-            );
-            final mediaList = (r['report_media'] as List?) ?? [];
-            Map<String, dynamic>? beforeMedia;
-            Map<String, dynamic>? afterMedia;
-            for (final m in mediaList) {
-              if (m is Map<String, dynamic>) {
-                if (m['media_role'] == 'before') beforeMedia = m;
-                if (m['media_role'] == 'after') afterMedia = m;
+          final List<ReportModel> liveReports = [];
+          for (final item in (reportsData as List)) {
+            try {
+              final r = item as Map<String, dynamic>;
+              final cat = _categories.firstWhere(
+                (c) => c.id == r['category_id'],
+                orElse: () => CategoryModel.defaultCategories.first,
+              );
+              final mediaList = (r['report_media'] as List?) ?? [];
+              Map<String, dynamic>? beforeMedia;
+              Map<String, dynamic>? afterMedia;
+              for (final m in mediaList) {
+                if (m is Map<String, dynamic>) {
+                  if (m['media_role'] == 'before') beforeMedia = m;
+                  if (m['media_role'] == 'after') afterMedia = m;
+                }
               }
-            }
-            String beforeUrl = beforeMedia?['storage_key_public'] as String? ??
-                beforeMedia?['storage_key_original'] as String? ??
-                '';
-            if (beforeUrl.isEmpty) {
-              beforeUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e';
-            }
-            final afterUrl = afterMedia?['storage_key_public'] as String? ??
-                afterMedia?['storage_key_original'] as String? ??
-                '';
+              String beforeUrl = beforeMedia?['storage_key_public'] as String? ??
+                  beforeMedia?['storage_key_original'] as String? ??
+                  '';
+              if (beforeUrl.isEmpty) {
+                beforeUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e';
+              }
+              final afterUrl = afterMedia?['storage_key_public'] as String? ??
+                  afterMedia?['storage_key_original'] as String? ??
+                  '';
 
-            // Parse cleanups dari database Supabase
-            CleanupTaskModel? cleanupTask;
-            final cleanupsList = (r['report_cleanups'] as List?) ?? [];
-            if (cleanupsList.isNotEmpty) {
-              final lastCleanup = cleanupsList.last as Map<String, dynamic>;
-              final isTaskCompleted = r['status'] == 'cleaned' || lastCleanup['completed_at'] != null;
-              cleanupTask = CleanupTaskModel(
-                id: lastCleanup['id'] as String? ?? 'cln-task',
-                reportId: r['id'] as String,
-                cleanerId: lastCleanup['cleaner_id'] as String? ?? 'd0000000-0000-0000-0000-000000000002',
-                cleanerName: 'Budi Relawan Pembersih',
-                notes: lastCleanup['notes'] as String?,
-                cleanupLat: (lastCleanup['cleanup_lat'] as num?)?.toDouble(),
-                cleanupLng: (lastCleanup['cleanup_lng'] as num?)?.toDouble(),
-                startedAt: DateTime.tryParse(lastCleanup['started_at'] as String? ?? '') ?? DateTime.now(),
-                completedAt: DateTime.tryParse(lastCleanup['completed_at'] as String? ?? ''),
-                status: isTaskCompleted ? 'completed' : 'in_progress',
-                afterPhotoUrl: afterUrl.isNotEmpty ? afterUrl : null,
-                createdAt: DateTime.tryParse(lastCleanup['started_at'] as String? ?? '') ?? DateTime.now(),
-              );
+              // Parse cleanups dari database Supabase
+              CleanupTaskModel? cleanupTask;
+              final cleanupsList = (r['report_cleanups'] as List?) ?? [];
+              if (cleanupsList.isNotEmpty) {
+                final lastCleanup = cleanupsList.last as Map<String, dynamic>;
+                final isTaskCompleted = r['status'] == 'cleaned' || lastCleanup['completed_at'] != null;
+                cleanupTask = CleanupTaskModel(
+                  id: lastCleanup['id'] as String? ?? 'cln-task',
+                  reportId: r['id'] as String,
+                  cleanerId: lastCleanup['cleaner_id'] as String? ?? 'd0000000-0000-0000-0000-000000000002',
+                  cleanerName: 'Budi Relawan Pembersih',
+                  notes: lastCleanup['notes'] as String?,
+                  cleanupLat: (lastCleanup['cleanup_lat'] as num?)?.toDouble(),
+                  cleanupLng: (lastCleanup['cleanup_lng'] as num?)?.toDouble(),
+                  startedAt: DateTime.tryParse(lastCleanup['started_at'] as String? ?? '') ?? DateTime.now(),
+                  completedAt: DateTime.tryParse(lastCleanup['completed_at'] as String? ?? ''),
+                  status: isTaskCompleted ? 'completed' : 'in_progress',
+                  afterPhotoUrl: afterUrl.isNotEmpty ? afterUrl : null,
+                  createdAt: DateTime.tryParse(lastCleanup['started_at'] as String? ?? '') ?? DateTime.now(),
+                );
+              }
+
+              // Parse status history
+              final historyList = (r['report_status_history'] as List?) ?? [];
+              final statusHistory = historyList.map((h) {
+                return StatusHistoryModel(
+                  id: h['id'] as String? ?? '',
+                  reportId: r['id'] as String,
+                  fromStatus: h['from_status'] != null ? ReportStatusExtension.fromString(h['from_status'] as String?) : null,
+                  toStatus: ReportStatusExtension.fromString(h['to_status'] as String?),
+                  actorName: 'Relawan / Admin',
+                  reason: h['reason'] as String?,
+                  createdAt: DateTime.tryParse(h['created_at'] as String? ?? '') ?? DateTime.now(),
+                );
+              }).toList();
+
+              final report = ReportModel.fromJson({
+                ...r,
+                'category_name': cat.name,
+                'before_photo_url': beforeUrl,
+                'after_photo_url': afterUrl.isNotEmpty ? afterUrl : null,
+                'cleanup_task': cleanupTask?.toJson(),
+                'status_history': statusHistory.map((s) => s.toJson()).toList(),
+              });
+              liveReports.add(report);
+            } catch (err) {
+              debugPrint('[ReportService] Error parsing report: $err');
             }
+          }
 
-            // Parse status history
-            final historyList = (r['report_status_history'] as List?) ?? [];
-            final statusHistory = historyList.map((h) {
-              return StatusHistoryModel(
-                id: h['id'] as String? ?? '',
-                reportId: r['id'] as String,
-                fromStatus: h['from_status'] != null ? ReportStatusExtension.fromString(h['from_status'] as String?) : null,
-                toStatus: ReportStatusExtension.fromString(h['to_status'] as String?),
-                actorName: 'Relawan / Admin',
-                reason: h['reason'] as String?,
-                createdAt: DateTime.tryParse(h['created_at'] as String? ?? '') ?? DateTime.now(),
-              );
-            }).toList();
-
-            return ReportModel.fromJson({
-              ...r,
-              'category_name': cat.name,
-              'before_photo_url': beforeUrl,
-              'after_photo_url': afterUrl.isNotEmpty ? afterUrl : null,
-              'cleanup_task': cleanupTask?.toJson(),
-              'status_history': statusHistory.map((s) => s.toJson()).toList(),
-            });
-          }).toList();
-          _reports = liveReports;
-          debugPrint('[ReportService] Synced ${liveReports.length} reports with cleanups from Supabase cloud.');
-          notifyListeners();
+          if (liveReports.isNotEmpty) {
+            _reports = liveReports;
+            _isCloudConnected = true;
+            debugPrint('[ReportService] Synced ${_reports.length} reports from Supabase cloud (LIVE).');
+            notifyListeners();
+          }
         }
       } catch (e) {
         debugPrint('[ReportService] Reports sync note: $e');
@@ -231,7 +265,7 @@ class ReportService extends ChangeNotifier {
   List<ReportModel> getPublicReports({
     String? categoryId,
     DateTimeRange? dateRange,
-    bool showCleaned = false,
+    bool showCleaned = true,
   }) {
     return _reports.where((r) {
       if (r.visibility != 'public') return false;

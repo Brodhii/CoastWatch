@@ -78,12 +78,12 @@ class ReportModel {
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     return ReportModel(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? 'rep-${DateTime.now().millisecondsSinceEpoch}',
       clientSubmissionId: json['client_submission_id'] as String?,
       reporterId: json['reporter_id'] as String? ?? 'anonymous',
       reporterName: json['reporter_name'] as String?,
-      categoryId: json['category_id'] as String? ?? 'other',
-      categoryName: json['category_name'] as String? ?? 'Lainnya',
+      categoryId: json['category_id'] as String? ?? 'c0000000-0000-0000-0000-000000000001',
+      categoryName: json['category_name'] as String? ?? 'Sampah plastik',
       description: json['description'] as String? ?? '',
       latitude: json['latitude'] is num
           ? (json['latitude'] as num).toDouble()
@@ -91,11 +91,11 @@ class ReportModel {
       longitude: json['longitude'] is num
           ? (json['longitude'] as num).toDouble()
           : (double.tryParse(json['longitude']?.toString() ?? '0.0') ?? 0.0),
-      locationName: json['location_name'] as String?,
+      locationName: json['location_name'] as String? ?? 'Kawasan Pesisir Batam / Kepri',
       exifDateTimeOriginal: json['exif_datetime_original'] != null
-          ? DateTime.parse(json['exif_datetime_original'] as String)
+          ? DateTime.tryParse(json['exif_datetime_original'].toString())
           : null,
-      deviceLocationAccuracyM: (json['device_location_accuracy_m'] as num?)?.toDouble(),
+      deviceLocationAccuracyM: (json['device_location_accuracy_m'] as num?)?.toDouble() ?? 10.0,
       metadataValidationStatus: json['metadata_validation_status'] as String? ?? 'valid',
       status: ReportStatusExtension.fromString(json['status'] as String?),
       duplicateOf: json['duplicate_of'] as String?,
@@ -108,14 +108,21 @@ class ReportModel {
           : null,
       statusHistory: json['status_history'] != null
           ? (json['status_history'] as List)
-              .map((e) => StatusHistoryModel.fromJson(e as Map<String, dynamic>))
+              .map((e) {
+                try {
+                  return StatusHistoryModel.fromJson(e as Map<String, dynamic>);
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<StatusHistoryModel>()
               .toList()
           : [],
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now())
           : DateTime.now(),
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
+          ? (DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now())
           : DateTime.now(),
     );
   }

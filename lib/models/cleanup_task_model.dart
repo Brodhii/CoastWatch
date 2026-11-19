@@ -37,30 +37,30 @@ class CleanupTaskModel {
 
   factory CleanupTaskModel.fromJson(Map<String, dynamic> json) {
     return CleanupTaskModel(
-      id: json['id'] as String,
-      reportId: json['report_id'] as String,
-      cleanerId: json['cleaner_id'] as String,
-      cleanerName: json['cleaner_name'] as String?,
+      id: json['id'] as String? ?? 'cln-task',
+      reportId: json['report_id'] as String? ?? '',
+      cleanerId: json['cleaner_id'] as String? ?? 'd0000000-0000-0000-0000-000000000002',
+      cleanerName: json['cleaner_name'] as String? ?? 'Budi Relawan Pembersih',
       notes: json['notes'] as String?,
       cleanupLat: (json['cleanup_lat'] as num?)?.toDouble(),
       cleanupLng: (json['cleanup_lng'] as num?)?.toDouble(),
       cleanupExifDateTimeOriginal: json['cleanup_exif_datetime_original'] != null
-          ? DateTime.parse(json['cleanup_exif_datetime_original'] as String)
+          ? DateTime.tryParse(json['cleanup_exif_datetime_original'].toString())
           : null,
       startedAt: json['started_at'] != null
-          ? DateTime.parse(json['started_at'] as String)
+          ? (DateTime.tryParse(json['started_at'].toString()) ?? DateTime.now())
           : DateTime.now(),
       fieldWorkStartedAt: json['field_work_started_at'] != null
-          ? DateTime.parse(json['field_work_started_at'] as String)
+          ? DateTime.tryParse(json['field_work_started_at'].toString())
           : null,
       completedAt: json['completed_at'] != null
-          ? DateTime.parse(json['completed_at'] as String)
+          ? DateTime.tryParse(json['completed_at'].toString())
           : null,
       status: json['status'] as String? ?? 'in_progress',
       afterPhotoUrl: json['after_photo_url'] as String?,
-      sackCount: json['sack_count'] as int?,
+      sackCount: (json['sack_count'] as num?)?.toInt(),
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now())
           : DateTime.now(),
     );
   }

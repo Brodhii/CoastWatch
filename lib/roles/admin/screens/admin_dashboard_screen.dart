@@ -61,24 +61,76 @@ class AdminDashboardScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (!isSmall) ...[
-                      OutlinedButton(
-                        onPressed: () {
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.refresh, size: 14),
+                      onPressed: () async {
+                        final ok = await reportService.refreshFromCloud();
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Data operasional telah diperbarui.')),
+                            SnackBar(
+                              content: Text(ok
+                                  ? 'Data Supabase cloud berhasil disinkronkan (${reportService.reports.length} laporan).'
+                                  : 'Gagal menyinkronkan data cloud.'),
+                            ),
                           );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF0F172A),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF0F172A),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                      label: const Text('Perbarui Data Cloud', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Cloud Status Banner
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: reportService.isCloudConnected
+                        ? const Color(0xFFECFDF5)
+                        : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: reportService.isCloudConnected
+                          ? const Color(0xFFA7F3D0)
+                          : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        reportService.isCloudConnected
+                            ? Icons.cloud_done_rounded
+                            : Icons.cloud_off_rounded,
+                        size: 16,
+                        color: reportService.isCloudConnected
+                            ? const Color(0xFF059669)
+                            : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          reportService.isCloudConnected
+                              ? 'Koneksi Supabase Live: ${reportService.reports.length} Laporan, ${reportService.categories.length} Kategori, ${reportService.auditLogs.length} Log'
+                              : 'Mode Demo Offline: Menghubungkan ke https://mxyptgfagmatwkzlnzqp.supabase.co...',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: reportService.isCloudConnected
+                                ? const Color(0xFF065F46)
+                                : const Color(0xFF92400E),
+                          ),
                         ),
-                        child: const Text('Perbarui Data', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
                     ],
-                  ],
+                  ),
                 ),
 
                 const SizedBox(height: 16),

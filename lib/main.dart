@@ -28,13 +28,25 @@ void main() async {
   }
 
   // Initialize Supabase (with automatic fallback to Mock/Offline Demo mode if credentials not configured)
-  await SupabaseService().initialize();
+  try {
+    await SupabaseService().initialize().timeout(const Duration(seconds: 5));
+  } catch (e) {
+    debugPrint('[Main] Supabase init warning: $e');
+  }
 
   // Initialize Auth state
-  await AuthService().init();
+  try {
+    await AuthService().init().timeout(const Duration(seconds: 4));
+  } catch (e) {
+    debugPrint('[Main] Auth init warning: $e');
+  }
 
   // Synchronize master categories & live data from Supabase
-  await ReportService().init();
+  try {
+    await ReportService().init().timeout(const Duration(seconds: 8));
+  } catch (e) {
+    debugPrint('[Main] ReportService init warning: $e');
+  }
 
   runApp(const CoastWatchApp());
 }

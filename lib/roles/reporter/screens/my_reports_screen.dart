@@ -92,38 +92,48 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
 
               // Reports List or Empty State
               Expanded(
-                child: filteredReports.isEmpty
-                    ? EmptyStateView(
-                        icon: Icons.assignment_outlined,
-                        title: _filterStatus == null ? 'Belum Ada Laporan' : 'Tidak Ada Laporan dengan Status Ini',
-                        message: _filterStatus == null
-                            ? 'Anda belum pernah mengirimkan laporan temuan pesisir.'
-                            : 'Coba pilih filter status lainnya untuk melihat riwayat laporan Anda.',
-                        buttonLabel: _filterStatus == null ? 'Buat Laporan Pertama' : null,
-                        onButtonPressed: _filterStatus == null
-                            ? () => Navigator.pushNamed(context, AppRoutes.createReportCamera)
-                            : null,
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: filteredReports.length,
-                        itemBuilder: (context, index) {
-                          final report = filteredReports[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: ReportCard(
-                              report: report,
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.myReportDetail,
-                                  arguments: report.id,
-                                );
-                              },
+                child: RefreshIndicator(
+                  color: AppTheme.teal,
+                  onRefresh: () => _reportService.refreshFromCloud(),
+                  child: filteredReports.isEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            const SizedBox(height: 40),
+                            EmptyStateView(
+                              icon: Icons.assignment_outlined,
+                              title: _filterStatus == null ? 'Belum Ada Laporan' : 'Tidak Ada Laporan dengan Status Ini',
+                              message: _filterStatus == null
+                                  ? 'Anda belum pernah mengirimkan laporan temuan pesisir.'
+                                  : 'Coba pilih filter status lainnya untuk melihat riwayat laporan Anda.',
+                              buttonLabel: _filterStatus == null ? 'Buat Laporan Pertama' : null,
+                              onButtonPressed: _filterStatus == null
+                                  ? () => Navigator.pushNamed(context, AppRoutes.createReportCamera)
+                                  : null,
                             ),
-                          );
-                        },
-                      ),
+                          ],
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredReports.length,
+                          itemBuilder: (context, index) {
+                            final report = filteredReports[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: ReportCard(
+                                report: report,
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.myReportDetail,
+                                    arguments: report.id,
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ),
             ],
           ),

@@ -66,6 +66,18 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF0F172A)),
+                      tooltip: 'Sinkronkan Supabase Cloud',
+                      onPressed: () async {
+                        final ok = await _reportService.refreshFromCloud();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(ok ? 'Data Supabase cloud berhasil disinkronkan (${_reportService.reports.length} laporan).' : 'Gagal menyinkronkan data cloud.')),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
 

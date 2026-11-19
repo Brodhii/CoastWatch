@@ -29,10 +29,11 @@ class SupabaseService {
     try {
       await Supabase.initialize(
         url: AppConfig.supabaseUrl,
+        anonKey: AppConfig.supabaseAnonKey,
         publishableKey: AppConfig.supabaseAnonKey,
       );
       _isInitialized = true;
-      debugPrint('[SupabaseService] Connected to Supabase successfully.');
+      debugPrint('[SupabaseService] Connected to Supabase successfully: ${AppConfig.supabaseUrl}');
     } catch (e) {
       debugPrint('[SupabaseService] Initialization failed: $e. Falling back to Demo mode.');
       _isInitialized = false;
