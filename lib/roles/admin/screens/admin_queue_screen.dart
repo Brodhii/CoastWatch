@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants.dart';
 import '../../../models/report_model.dart';
 import '../../../services/report_service.dart';
+import '../../../shared/safe_app_image.dart';
+import '../../../shared/status_badge.dart';
 
 class AdminQueueScreen extends StatefulWidget {
   final ValueChanged<String> onNavigateToReview;
@@ -18,6 +21,7 @@ class AdminQueueScreen extends StatefulWidget {
 class _AdminQueueScreenState extends State<AdminQueueScreen> {
   final ReportService _reportService = ReportService();
   String _searchQuery = '';
+  String _selectedStage = 'all';
   String _selectedCategory = 'all';
   final Set<String> _selectedReportIds = {};
 
@@ -155,6 +159,16 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
       ),
     );
 
+    final stageDropdown = _buildDropdown(
+      value: _selectedStage,
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('Semua Antrean')),
+        DropdownMenuItem(value: 'pending_review', child: Text('Tahap 1: Laporan Masuk')),
+        DropdownMenuItem(value: 'pending_cleanup', child: Text('Tahap 2: Validasi Bersih')),
+      ],
+      onChanged: (v) => setState(() => _selectedStage = v ?? 'all'),
+    );
+
     final categoryDropdown = _buildDropdown(
       value: _selectedCategory,
       items: const [
@@ -173,6 +187,7 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
       onPressed: () {
         setState(() {
           _searchQuery = '';
+          _selectedStage = 'all';
           _selectedCategory = 'all';
         });
       },
@@ -202,10 +217,12 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
     if (isDesktop) {
       return Row(
         children: [
-          SizedBox(width: 260, child: searchBox),
-          const SizedBox(width: 10),
+          SizedBox(width: 220, child: searchBox),
+          const SizedBox(width: 8),
+          stageDropdown,
+          const SizedBox(width: 8),
           categoryDropdown,
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           resetButton,
           const Spacer(),
           bulkValidateButton,
@@ -221,6 +238,8 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                stageDropdown,
+                const SizedBox(width: 8),
                 categoryDropdown,
                 const SizedBox(width: 8),
                 resetButton,
@@ -329,18 +348,26 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
               width: 44,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.network(report.beforePhotoUrl, width: 38, height: 28, fit: BoxFit.cover),
+                child: SafeAppImage(imageUrl: report.beforePhotoUrl, width: 38, height: 28, fit: BoxFit.cover),
               ),
             ),
 
-            // ID & Waktu
+            // Wilayah & Waktu
             SizedBox(
-              width: 90,
+              width: 120,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(report.id, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                  const Text('15 Okt 2024', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                  Text(
+                    report.locationName ?? 'Pesisir Batam',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt),
+                    style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                  ),
                 ],
               ),
             ),
@@ -388,19 +415,23 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
 
             // Button
             SizedBox(
-              width: 100,
+              width: 120,
               child: Align(
                 alignment: Alignment.centerRight,
                 child: OutlinedButton(
                   onPressed: () => widget.onNavigateToReview(report.id),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    foregroundColor: report.isPendingCleanupReview ? const Color(0xFF7C3AED) : const Color(0xFF0F172A),
+                    backgroundColor: report.isPendingCleanupReview ? const Color(0xFFF5F3FF) : Colors.transparent,
+                    side: BorderSide(color: report.isPendingCleanupReview ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     minimumSize: Size.zero,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   ),
-                  child: const Text('Buka Verifikasi', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    report.isPendingCleanupReview ? 'Validasi Bersih' : 'Buka Verifikasi',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ),
@@ -449,8 +480,8 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: Image.network(
-                report.beforePhotoUrl,
+              child: SafeAppImage(
+                imageUrl: report.beforePhotoUrl,
                 width: 56,
                 height: 56,
                 fit: BoxFit.cover,
@@ -465,7 +496,7 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(report.id, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                      const Text('15 Okt 2024', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                      StatusBadge(status: report.status, isCompact: true),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -495,12 +526,17 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                     child: OutlinedButton(
                       onPressed: () => widget.onNavigateToReview(report.id),
                       style: OutlinedButton.styleFrom(
+                        foregroundColor: report.isPendingCleanupReview ? const Color(0xFF7C3AED) : const Color(0xFF0F172A),
+                        backgroundColor: report.isPendingCleanupReview ? const Color(0xFFF5F3FF) : Colors.transparent,
+                        side: BorderSide(color: report.isPendingCleanupReview ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1)),
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         minimumSize: Size.zero,
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                       ),
-                      child: const Text('Buka Verifikasi', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                      child: Text(
+                        report.isPendingCleanupReview ? 'Validasi Pembersihan' : 'Buka Verifikasi',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ],
@@ -514,7 +550,16 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
 
   List<ReportModel> get _filteredReports {
     return _reportService.reports.where((r) {
-      if (r.status != ReportStatus.pendingReview) return false;
+      // Filter status antrean: Laporan Masuk (Tahap 1) atau Validasi Pembersihan Relawan (Tahap 2)
+      final isQueueItem = r.status == ReportStatus.pendingReview || r.status == ReportStatus.pendingCleanupReview;
+      if (!isQueueItem) return false;
+
+      if (_selectedStage == 'pending_review' && r.status != ReportStatus.pendingReview) {
+        return false;
+      }
+      if (_selectedStage == 'pending_cleanup' && r.status != ReportStatus.pendingCleanupReview) {
+        return false;
+      }
 
       if (_selectedCategory != 'all' && r.categoryId.toLowerCase() != _selectedCategory.toLowerCase()) {
         return false;

@@ -5,6 +5,9 @@ import '../../../core/constants.dart';
 import '../../../models/category_model.dart';
 import '../../../models/report_model.dart';
 import '../../../services/report_service.dart';
+import '../../../shared/safe_app_image.dart';
+import '../../../shared/status_badge.dart';
+import '../../cleaner/widgets/before_after_preview.dart';
 import '../widgets/duplicate_report_dialog.dart';
 import '../widgets/reject_report_dialog.dart';
 
@@ -192,8 +195,12 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
     );
   }
 
-  // BREADCRUMBS & TICKET TITLE HEADER (Pure typography, no icons)
+  // BREADCRUMBS & TITLE HEADER (Human-centered, clean typography)
   Widget _buildBreadcrumbsAndTitle(ReportModel report, bool isSmall) {
+    final regionName = report.locationName != null && report.locationName!.isNotEmpty
+        ? report.locationName!
+        : 'Kawasan Pesisir Pantai Batam';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -211,7 +218,7 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
               child: Text('/', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
             ),
             Text(
-              'Tiket #${report.id}',
+              report.categoryName,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
             ),
           ],
@@ -229,32 +236,16 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '#${report.id}',
+                  report.categoryName,
                   style: TextStyle(
-                    fontSize: isSmall ? 20 : 24,
+                    fontSize: isSmall ? 18 : 22,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A),
                     letterSpacing: -0.5,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF0F172A), width: 1.2),
-                  ),
-                  child: Text(
-                    report.status.label.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
+                StatusBadge(status: report.status, isCompact: true),
               ],
             ),
 
@@ -283,14 +274,14 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
           spacing: 8,
           runSpacing: 4,
           children: [
-            const Text(
-              'Pelapor: Terverifikasi',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            Text(
+              'Wilayah: $regionName',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
             ),
             const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-            const Text(
-              'Waktu Masuk: 15 Okt 2024, 09:25 WIB',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            Text(
+              'Pelapor: ${report.reporterName ?? "Warga Terverifikasi"}',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],
         ),
@@ -314,20 +305,28 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Bukti Foto Lapangan Resolusi Penuh',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                Text(
+                  report.isPendingCleanupReview
+                      ? 'Validasi Bukti Sebelum vs Sesudah Pembersihan'
+                      : 'Bukti Foto Lapangan Resolusi Penuh',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: report.isPendingCleanupReview ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                    border: Border.all(
+                      color: report.isPendingCleanupReview ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1),
+                    ),
                   ),
-                  child: const Text(
-                    'SHA-256 Valid',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                  child: Text(
+                    report.isPendingCleanupReview ? 'Bukti Relawan Masuk' : 'SHA-256 Valid',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: report.isPendingCleanupReview ? const Color(0xFF7C3AED) : const Color(0xFF334155),
+                    ),
                   ),
                 ),
               ],
@@ -335,72 +334,101 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
           ),
           const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-          Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 10,
-                child: Image.network(
-                  report.beforePhotoUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: const Color(0xFF1E293B),
-                    alignment: Alignment.center,
-                    child: const Text('Foto Bukti Lapangan', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ),
-                ),
+          if (report.isPendingCleanupReview) ...[
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: BeforeAfterPreview(
+                beforePhotoUrl: report.beforePhotoUrl,
+                afterPhotoUrl: report.afterPhotoUrl ?? '',
+                beforeLocation: report.locationName ?? report.formattedCoordinates,
+                afterLocation: 'Lokasi Pembersihan Pesisir',
               ),
-
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  color: Colors.black.withValues(alpha: 0.8),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+            ),
+            if (report.cleanerNotes != null && report.cleanerNotes!.isNotEmpty || report.cleanerName != null || report.sackCount != null)
+              Container(
+                margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 16, color: Color(0xFF64748B)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Relawan: ${report.cleanerName ?? "Budi Relawan"}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                        ),
+                        if (report.sackCount != null) ...[
+                          const SizedBox(width: 12),
+                          const Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFF0D9488)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${report.sackCount} Karung Sampah',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0D9488)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (report.cleanerNotes != null && report.cleanerNotes!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        'EXIF: 4032 × 3024 • ISO 50 • 26mm f/1.8',
-                        style: TextStyle(fontSize: 10, color: Colors.white, fontFamily: 'monospace'),
-                      ),
-                      Text(
-                        'Geotag Sensor Presisi',
-                        style: TextStyle(fontSize: 10, color: Colors.white70),
+                        'Catatan: ${report.cleanerNotes!}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF0F172A), height: 1.3),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
+          ] else ...[
+            Stack(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _showImageZoomDialog(context, report.beforePhotoUrl),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0F172A),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    ),
-                    child: const Text('Perbesar Foto (Zoom)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                AspectRatio(
+                  aspectRatio: 16 / 10,
+                  child: SafeAppImage(
+                    imageUrl: report.beforePhotoUrl,
+                    fit: BoxFit.cover,
                   ),
                 ),
               ],
             ),
-          ),
+
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showImageZoomDialog(context, report.beforePhotoUrl),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0F172A),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                      child: const Text('Perbesar Foto (Zoom)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // 2. CARD: GIS MAP (No icons, crosshair pinpoint)
+  // 2. CARD: GIS MAP (Clean location display)
   Widget _buildGisMapCard(ReportModel report) {
+    final regionName = report.locationName != null && report.locationName!.isNotEmpty
+        ? report.locationName!
+        : 'Kawasan Pesisir Pantai Batam';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -420,8 +448,8 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                 ),
                 Text(
-                  '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF64748B)),
+                  regionName,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
                 ),
               ],
             ),
@@ -477,8 +505,8 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
           Padding(
             padding: const EdgeInsets.all(10),
             child: Text(
-              'Lokasi: ${report.locationName ?? "Zona Intertidal Pesisir"} (Koordinat EXIF terkunci dari berkas asli)',
-              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              'Wilayah: ${report.locationName ?? "Kawasan Pesisir Pantai Batam"}',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ),
         ],
@@ -706,13 +734,66 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
     );
   }
 
-  // 6. CARD: AKSI KEPUTUSAN (No icons, clean buttons)
+  // 6. CARD: AKSI KEPUTUSAN (Tahap 1 Verifikasi Laporan vs Tahap 2 Validasi Bersih)
   Widget _buildActionButtonsCard(ReportModel report) {
+    // TAHAP 2: Jika laporan menunggu persetujuan pembersihan relawan
+    if (report.isPendingCleanupReview) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'AKSI VALIDASI HASIL PEMBERSIHAN RELAWAN (TAHAP 2)',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF7C3AED),
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Primary: Sahkan Pembersihan (Setujui Bersih)
+          ElevatedButton(
+            onPressed: () => _approveCleanup(report),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669), // Emerald Green
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Sahkan Pembersihan (Setujui Bersih & Terverifikasi)',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Secondary: Minta Pembersihan Ulang
+          OutlinedButton(
+            onPressed: () => _showRejectCleanupDialog(report),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626),
+              side: const BorderSide(color: Color(0xFFFCA5A5)),
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            ),
+            child: const Text(
+              'Tolak / Minta Relawan Bersihkan Ulang...',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // TAHAP 1: Verifikasi Laporan Masuk
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'AKSI KEPUTUSAN ADMINISTRATIF',
+          'AKSI KEPUTUSAN ADMINISTRATIF (TAHAP 1)',
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
@@ -774,6 +855,94 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
     );
   }
 
+  Future<void> _approveCleanup(ReportModel report) async {
+    final success = await _reportService.adminApproveCleanup(
+      report.id,
+      notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+    );
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pembersihan berhasil disahkan! Status laporan kini telah Bersih.'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
+        widget.onBackToQueue();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal mengesahkan pembersihan.'),
+            backgroundColor: Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showRejectCleanupDialog(ReportModel report) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Minta Pembersihan Ulang', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tuliskan instruksi atau alasan mengapa pembersihan relawan perlu diulang:',
+              style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              style: const TextStyle(fontSize: 12),
+              decoration: const InputDecoration(
+                hintText: 'Contoh: Masih ada sisa plastik di sela batu karang...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final reason = reasonController.text.trim();
+              Navigator.pop(ctx);
+              final success = await _reportService.adminRejectCleanup(
+                report.id,
+                reason: reason.isNotEmpty ? reason : 'Perlu pembersihan ulang',
+              );
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tugas pembersihan dikembalikan ke relawan untuk pembersihan ulang.'),
+                      backgroundColor: Color(0xFFDC2626),
+                    ),
+                  );
+                  widget.onBackToQueue();
+                }
+              }
+            },
+            child: const Text('Kirim Instruksi Ulang'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showImageZoomDialog(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
@@ -784,7 +953,7 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
             InteractiveViewer(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.network(imageUrl),
+                child: SafeAppImage(imageUrl: imageUrl),
               ),
             ),
             Positioned(
