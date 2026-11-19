@@ -44,7 +44,7 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
                   children: [
                     _buildFilterChip('Semua (${allMyTasks.length})', null),
                     const SizedBox(width: 8),
-                    _buildFilterChip('Sedang Ditangani', ReportStatus.inProgress),
+                    _buildFilterChip('Sedang Dibersihkan', ReportStatus.inProgress),
                     const SizedBox(width: 8),
                     _buildFilterChip('Selesai Dibersihkan', ReportStatus.cleaned),
                   ],

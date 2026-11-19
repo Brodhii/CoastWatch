@@ -1,15 +1,20 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/app_theme.dart';
 import '../../../core/constants.dart';
+import '../../../models/report_model.dart';
 import '../../../services/exif_service.dart';
 import '../../../services/location_service.dart';
 import '../../../services/report_service.dart';
 import '../../../shared/app_button.dart';
 import '../../../shared/app_text_field.dart';
+import '../../../shared/camera_capture_screen.dart';
+import '../../../shared/safe_app_image.dart';
 import '../../reporter/widgets/geotag_preview_card.dart';
+import '../widgets/before_after_preview.dart';
 
 class CleanupProofScreen extends StatefulWidget {
   final String reportId;
@@ -27,11 +32,15 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
   final ReportService _reportService = ReportService();
   final TextEditingController _notesController = TextEditingController();
 
+  XFile? _proofXFile;
+  Uint8List? _proofImageBytes;
   File? _proofImageFile;
   LocationResult? _captureLocation;
   ExifDataResult? _exifResult;
   bool _isProcessing = false;
   bool _isSubmitting = false;
+  bool _isSimulatingProximity = false;
+  int _sackCount = 1;
 
   @override
   void dispose() {
@@ -39,34 +48,83 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
     super.dispose();
   }
 
-  Future<void> _takeProofPhoto(ImageSource source) async {
-    setState(() {
-      _isProcessing = true;
-    });
+  Future<void> _openCamera() async {
+    setState(() => _isProcessing = true);
 
     try {
-      final loc = await _locationService.getCurrentLocation();
+      final locFuture = _locationService.getCurrentLocation();
+
+      final XFile? picture = await Navigator.push<XFile>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CameraCaptureScreen(
+            title: 'Kamera Bukti Pembersihan',
+          ),
+        ),
+      );
+
+      if (picture == null) {
+        if (mounted) setState(() => _isProcessing = false);
+        return;
+      }
+
+      final loc = await locFuture;
       _captureLocation = loc;
+      await _processImage(picture, loc);
+    } catch (e) {
+      debugPrint('[CleanupProof] Error opening camera: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Kendala kamera: $e. Coba pilih foto dari galeri.'),
+            backgroundColor: AppTheme.statusRejected,
+          ),
+        );
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final locFuture = _locationService.getCurrentLocation();
 
       final XFile? picked = await _picker.pickImage(
-        source: source,
+        source: ImageSource.gallery,
         maxWidth: 1920,
         maxHeight: 1080,
         imageQuality: 85,
       );
 
       if (picked == null) {
-        setState(() {
-          _isProcessing = false;
-        });
+        if (mounted) setState(() => _isProcessing = false);
         return;
       }
 
-      final file = File(picked.path);
+      final loc = await locFuture;
+      _captureLocation = loc;
+      await _processImage(picked, loc);
+    } catch (e) {
+      debugPrint('[CleanupProof] Gallery error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memuat galeri: $e'),
+            backgroundColor: AppTheme.statusRejected,
+          ),
+        );
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
 
-      // Verify file size <= 5 MB (Section 7.3)
-      final length = await file.length();
-      if (length > AppConstants.maxFileSizeBytes) {
+  Future<void> _processImage(XFile file, LocationResult? loc) async {
+    try {
+      final bytes = await file.readAsBytes();
+
+      if (bytes.lengthInBytes > AppConstants.maxFileSizeBytes) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -74,19 +132,23 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
             backgroundColor: AppTheme.statusRejected,
           ),
         );
-        setState(() {
-          _isProcessing = false;
-        });
+        setState(() => _isProcessing = false);
         return;
       }
 
-      final exif = await _exifService.extractExifData(file, fallbackLocation: loc);
+      final exif = await _exifService.extractExifData(bytes, fallbackLocation: loc);
 
-      setState(() {
-        _proofImageFile = file;
-        _exifResult = exif;
-        _isProcessing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _proofXFile = file;
+          _proofImageBytes = bytes;
+          if (!kIsWeb) {
+            _proofImageFile = File(file.path);
+          }
+          _exifResult = exif;
+          _isProcessing = false;
+        });
+      }
     } catch (e) {
       debugPrint('[CleanupProof] Error: $e');
       if (!mounted) return;
@@ -96,14 +158,59 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
           backgroundColor: AppTheme.statusRejected,
         ),
       );
-      setState(() {
-        _isProcessing = false;
-      });
+      setState(() => _isProcessing = false);
     }
   }
 
+  void _onSendPressed(ReportModel? report, double? distanceMeters) {
+    if (!_isSimulatingProximity && (distanceMeters == null || distanceMeters > AppConstants.maxCleanerProximityMeters)) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.location_on_outlined, color: AppTheme.teal),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Konfirmasi Lokasi Bukti Foto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: Text(
+            'Foto bukti yang diunggah terdeteksi berjarak '
+            '${LocationService.formatDistance(distanceMeters ?? 999999)} dari koordinat laporan awal.\n\n'
+            'Pada kondisi operasional lapangan asli, foto bukti wajib diambil dalam radius maksimal 50 meter dari titik sampah.\n\n'
+            'Apakah Anda ingin mengirimkan bukti ini dengan mode simulasi (Uji Coba Laptop / Desktop)?',
+            style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.textPrimary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() => _isSimulatingProximity = true);
+                _submitCleanupProof();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.teal,
+                foregroundColor: AppTheme.navy,
+              ),
+              child: const Text('Kirim Bukti (Simulasi)'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    _submitCleanupProof();
+  }
+
   Future<void> _submitCleanupProof() async {
-    if (_proofImageFile == null || _exifResult == null || !_exifResult!.isValid) {
+    if ((_proofImageBytes == null && _proofImageFile == null) || _exifResult == null || !_exifResult!.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Foto bukti harus memiliki geotag GPS yang valid.'),
@@ -130,11 +237,15 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
     try {
       final success = await _reportService.completeCleanupTask(
         reportId: widget.reportId,
-        proofPhotoFile: _proofImageFile!,
+        proofPhotoFile: _proofImageFile,
+        proofPhotoXFile: _proofXFile,
+        proofPhotoPath: _proofXFile?.path,
         notes: _notesController.text.trim(),
         cleanupLat: _exifResult!.latitude!,
         cleanupLng: _exifResult!.longitude!,
         cleanupTimestamp: _exifResult!.dateTimeOriginal ?? DateTime.now(),
+        sackCount: _sackCount,
+        bypassProximity: _isSimulatingProximity,
       );
 
       if (!mounted) return;
@@ -167,7 +278,20 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
   @override
   Widget build(BuildContext context) {
     final report = _reportService.getReportById(widget.reportId);
-    final hasValidGps = _proofImageFile != null && (_exifResult?.isValid ?? false);
+    final hasValidPhoto = (_proofImageBytes != null || _proofImageFile != null) && (_exifResult?.isValid ?? false);
+
+    double? distanceMeters;
+    if (_exifResult != null && _exifResult!.isValid && report != null) {
+      distanceMeters = LocationService.calculateDistanceMeters(
+        _exifResult!.latitude!,
+        _exifResult!.longitude!,
+        report.latitude,
+        report.longitude,
+      );
+    }
+
+    final isWithinRange = _isSimulatingProximity ||
+        (distanceMeters != null && distanceMeters <= AppConstants.maxCleanerProximityMeters);
 
     return Scaffold(
       appBar: AppBar(
@@ -178,39 +302,46 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Notice Card
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.skyBlue.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.teal.withValues(alpha: 0.2)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, size: 20, color: AppTheme.navy),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Ambil foto kondisi pantai sesudah pembersihan langsung di lokasi. Foto bukti harus ber-geotag valid dari sensor GPS.',
-                      style: TextStyle(fontSize: 12, color: AppTheme.navy, height: 1.3),
-                    ),
+            // Notice Card (Clean white card with solid accent bar)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    left: BorderSide(color: Color(0xFF0F766E), width: 3.5),
+                    top: BorderSide(color: Color(0xFFE2E8F0)),
+                    right: BorderSide(color: Color(0xFFE2E8F0)),
+                    bottom: BorderSide(color: Color(0xFFE2E8F0)),
                   ),
-                ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: Color(0xFF0F766E)),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Ambil foto kondisi pantai sesudah pembersihan di lokasi. Bukti akan diverifikasi oleh Admin Operasional.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
 
             if (report != null) ...[
               Text(
-                'Tugas: ${report.categoryName} (${report.locationName ?? report.formattedCoordinates})',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                'Wilayah: ${report.locationName ?? "Kawasan Pesisir Pantai Batam"} • ${report.categoryName}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
               ),
               const SizedBox(height: 12),
             ],
 
             // Photo Capture Area
-            if (_proofImageFile == null)
+            if (_proofImageBytes == null && _proofImageFile == null)
               Container(
                 height: 220,
                 width: double.infinity,
@@ -238,7 +369,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: _isProcessing ? null : () => _takeProofPhoto(ImageSource.camera),
+                          onPressed: _isProcessing ? null : _openCamera,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.navy,
                             foregroundColor: AppTheme.white,
@@ -248,7 +379,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton.icon(
-                          onPressed: _isProcessing ? null : () => _takeProofPhoto(ImageSource.gallery),
+                          onPressed: _isProcessing ? null : _pickFromGallery,
                           icon: const Icon(Icons.photo_library_outlined, size: 18),
                           label: const Text('Galeri'),
                         ),
@@ -262,8 +393,9 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
                 borderRadius: BorderRadius.circular(12),
                 child: Stack(
                   children: [
-                    Image.file(
-                      _proofImageFile!,
+                    SafeAppImage(
+                      imageBytes: _proofImageBytes,
+                      imageUrl: (!kIsWeb && _proofImageFile != null) ? _proofImageFile!.path : null,
                       height: 200,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -278,7 +410,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
                         ),
                         child: IconButton(
                           icon: const Icon(Icons.refresh, color: AppTheme.white, size: 20),
-                          onPressed: () => _takeProofPhoto(ImageSource.camera),
+                          onPressed: _openCamera,
                         ),
                       ),
                     ),
@@ -287,11 +419,178 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
               ),
               const SizedBox(height: 12),
 
-              if (_exifResult != null)
+              if (_exifResult != null) ...[
                 GeotagPreviewCard(
                   exifData: _exifResult!,
                   accuracy: _captureLocation?.accuracy,
                 ),
+                const SizedBox(height: 10),
+
+                // Proximity Verification Card
+                if (distanceMeters != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          left: BorderSide(
+                            color: isWithinRange ? const Color(0xFF0F766E) : const Color(0xFFDC2626),
+                            width: 3.5,
+                          ),
+                          top: const BorderSide(color: Color(0xFFE2E8F0)),
+                          right: const BorderSide(color: Color(0xFFE2E8F0)),
+                          bottom: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isWithinRange ? Icons.near_me_rounded : Icons.location_off_rounded,
+                                size: 18,
+                                color: isWithinRange ? const Color(0xFF0F766E) : const Color(0xFFDC2626),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  isWithinRange
+                                      ? 'Jarak Foto ke Pantai: ${LocationService.formatDistance(distanceMeters)} (Valid)'
+                                      : 'Foto Di Luar Radius Titik Pantai (${LocationService.formatDistance(distanceMeters)} > 50m)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: isWithinRange ? const Color(0xFF0F766E) : const Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (!isWithinRange) ...[
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Foto bukti pembersihan harus diambil di lokasi pantai yang sama dengan laporan (maksimal 50 meter).',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                            ),
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _isSimulatingProximity = !_isSimulatingProximity;
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Checkbox(
+                                      value: _isSimulatingProximity,
+                                      activeColor: const Color(0xFF0F766E),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _isSimulatingProximity = val ?? false;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Expanded(
+                                    child: Text(
+                                      'Simulasi Berada di Titik Lokasi Pantai (Mode Uji Coba)',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+
+            const SizedBox(height: 18),
+
+            // Sack Counter Card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF0F766E), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Estimasi Karung Sampah',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Jumlah karung sampah yang diangkut',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _sackCount > 1 ? () => setState(() => _sackCount--) : null,
+                        icon: const Icon(Icons.remove_circle_outline),
+                        color: _sackCount > 1 ? const Color(0xFF0F766E) : const Color(0xFFCBD5E1),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          '$_sackCount',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => setState(() => _sackCount++),
+                        icon: const Icon(Icons.add_circle_outline),
+                        color: const Color(0xFF0F766E),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            if (report != null && hasValidPhoto) ...[
+              const SizedBox(height: 18),
+              BeforeAfterPreview(
+                beforePhotoUrl: report.beforePhotoUrl,
+                afterPhotoUrl: (!kIsWeb && _proofImageFile != null) ? _proofImageFile!.path : (_proofXFile?.path ?? report.beforePhotoUrl),
+                afterPhotoBytes: _proofImageBytes,
+                beforeLocation: report.locationName ?? 'Kondisi Awal Pesisir',
+                afterLocation: report.locationName ?? 'Kondisi Sesudah Bersih',
+              ),
             ],
 
             const SizedBox(height: 18),
@@ -299,7 +598,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
             // Cleanup Action Notes
             AppTextField(
               label: 'Catatan Penanganan & Tindak Lanjut',
-              hint: 'Contoh: Berhasil mengangkut 4 karung sampah plastik ke TPS, area mangrove telah bebas dari jaring.',
+              hint: 'Contoh: Berhasil mengangkut 4 karung sampah plastik ke TPS, area pesisir telah bersih.',
               controller: _notesController,
               maxLines: 3,
             ),
@@ -307,10 +606,10 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
             const SizedBox(height: 28),
 
             AppButton(
-              label: 'Kirim Bukti & Selesaikan Tugas',
-              onPressed: hasValidGps && !_isSubmitting ? _submitCleanupProof : null,
+              label: 'Kirim Bukti untuk Validasi Admin',
+              onPressed: (hasValidPhoto && !_isSubmitting) ? () => _onSendPressed(report, distanceMeters) : null,
               isLoading: _isSubmitting,
-              icon: Icons.check_circle_outline,
+              icon: Icons.send_rounded,
               variant: AppButtonVariant.primary,
             ),
           ],

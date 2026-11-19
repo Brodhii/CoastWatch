@@ -39,7 +39,7 @@ class CleanupSuccessScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               const Text(
-                'Pembersihan Selesai & Tercatat',
+                'Bukti Pembersihan Berhasil Dikirim',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -50,7 +50,7 @@ class CleanupSuccessScreen extends StatelessWidget {
               const SizedBox(height: 8),
 
               const Text(
-                'Bukti foto geotag sesudah pembersihan telah divalidasi oleh sistem. Status laporan kini resmi diperbarui menjadi Selesai Dibersihkan.',
+                'Bukti foto ber-geotag sesudah pembersihan telah dikirimkan ke Admin Operasional. Status laporan kini dalam tahap Validasi Akhir sebelum disahkan sebagai Pantai Bersih.',
                 style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
@@ -77,10 +77,12 @@ class CleanupSuccessScreen extends StatelessWidget {
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.navy),
                       ),
                       const SizedBox(height: 8),
-                      StatusBadge(status: ReportStatus.cleaned),
+                      StatusBadge(status: report!.status == ReportStatus.cleaned ? ReportStatus.cleaned : ReportStatus.pendingCleanupReview),
                       const SizedBox(height: 8),
                       Text(
-                        report!.locationName ?? report!.formattedCoordinates,
+                        report!.locationName != null && report!.locationName!.isNotEmpty
+                            ? report!.locationName!
+                            : 'Kawasan Pesisir Pantai Batam',
                         style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                         textAlign: TextAlign.center,
                       ),

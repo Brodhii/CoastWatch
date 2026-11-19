@@ -56,36 +56,42 @@ class CleanerDashboardScreen extends StatelessWidget {
               children: [
                 // Active Tasks Banner (if any task is currently in progress)
                 if (inProgressTasks.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.statusInProgressBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.statusInProgress.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          left: BorderSide(color: Color(0xFF0284C7), width: 3.5),
+                          top: BorderSide(color: Color(0xFFE2E8F0)),
+                          right: BorderSide(color: Color(0xFFE2E8F0)),
+                          bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.handyman_outlined, color: AppTheme.statusInProgress, size: 20),
+                            const Icon(Icons.handyman_outlined, color: Color(0xFF0284C7), size: 18),
                             const SizedBox(width: 8),
                             Text(
-                              '${inProgressTasks.length} Tugas Sedang Ditangani',
+                              '${inProgressTasks.length} Tugas Sedang Anda Bersihkan',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: AppTheme.statusInProgress,
+                                color: Color(0xFF0F172A),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Selesaikan pembersihan di lapangan lalu unggah foto bukti sesudah pembersihan ber-geotag valid.',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.3),
+                          'Selesaikan pembersihan di lokasi pantai lalu unggah foto bukti sesudah bersih.',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.35),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         SizedBox(
                           height: 36,
                           child: ElevatedButton(
@@ -97,8 +103,8 @@ class CleanerDashboardScreen extends StatelessWidget {
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.statusInProgress,
-                              foregroundColor: AppTheme.white,
+                              backgroundColor: const Color(0xFF0F172A),
+                              foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
@@ -108,7 +114,8 @@ class CleanerDashboardScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 20),
                 ],
 
                 // Action Bar

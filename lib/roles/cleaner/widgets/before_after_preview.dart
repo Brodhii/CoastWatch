@@ -1,10 +1,12 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
+import '../../../shared/safe_app_image.dart';
 
 class BeforeAfterPreview extends StatelessWidget {
   final String beforePhotoUrl;
   final String afterPhotoUrl;
+  final Uint8List? afterPhotoBytes;
   final String beforeLocation;
   final String afterLocation;
 
@@ -12,6 +14,7 @@ class BeforeAfterPreview extends StatelessWidget {
     super.key,
     required this.beforePhotoUrl,
     required this.afterPhotoUrl,
+    this.afterPhotoBytes,
     required this.beforeLocation,
     required this.afterLocation,
   });
@@ -40,15 +43,16 @@ class BeforeAfterPreview extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.statusPendingBg,
+                      color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
                     child: const Text(
-                      'SEBELUM',
+                      'SEBELUM BERSIH',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.statusPending,
+                        color: Color(0xFF475569),
                       ),
                     ),
                   ),
@@ -58,7 +62,12 @@ class BeforeAfterPreview extends StatelessWidget {
                     child: SizedBox(
                       height: 110,
                       width: double.infinity,
-                      child: _buildPhoto(beforePhotoUrl),
+                      child: SafeAppImage(
+                        imageUrl: beforePhotoUrl,
+                        height: 110,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -80,15 +89,16 @@ class BeforeAfterPreview extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.statusCleanedBg,
+                      color: const Color(0xFFF0FDF4),
                       borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
                     ),
                     child: const Text(
                       'SESUDAH BERSIH',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.statusCleaned,
+                        color: Color(0xFF15803D),
                       ),
                     ),
                   ),
@@ -98,7 +108,13 @@ class BeforeAfterPreview extends StatelessWidget {
                     child: SizedBox(
                       height: 110,
                       width: double.infinity,
-                      child: _buildPhoto(afterPhotoUrl),
+                      child: SafeAppImage(
+                        imageBytes: afterPhotoBytes,
+                        imageUrl: afterPhotoBytes != null ? null : afterPhotoUrl,
+                        height: 110,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -114,27 +130,6 @@ class BeforeAfterPreview extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildPhoto(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return Image.network(url, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _fallback());
-    } else if (url.isNotEmpty) {
-      final file = File(url);
-      if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _fallback());
-      }
-    }
-    return _fallback();
-  }
-
-  Widget _fallback() {
-    return Container(
-      color: AppTheme.background,
-      child: const Center(
-        child: Icon(Icons.broken_image_outlined, color: AppTheme.textMuted, size: 24),
-      ),
     );
   }
 }

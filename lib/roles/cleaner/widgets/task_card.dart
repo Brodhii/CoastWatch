@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/app_theme.dart';
 import '../../../models/report_model.dart';
+import '../../../shared/safe_app_image.dart';
 import '../../../shared/status_badge.dart';
 
 class TaskCard extends StatelessWidget {
@@ -19,7 +19,12 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt);
+    String formattedDate;
+    try {
+      formattedDate = DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt);
+    } catch (_) {
+      formattedDate = DateFormat('dd MMM yyyy').format(report.createdAt);
+    }
 
     return InkWell(
       onTap: onTap,
@@ -40,7 +45,12 @@ class TaskCard extends StatelessWidget {
               child: SizedBox(
                 width: 80,
                 height: 80,
-                child: _buildThumbnail(report.beforePhotoUrl),
+                child: SafeAppImage(
+                  imageUrl: report.beforePhotoUrl,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -69,11 +79,13 @@ class TaskCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    report.locationName ?? report.formattedCoordinates,
+                    report.locationName != null && report.locationName!.isNotEmpty
+                        ? report.locationName!
+                        : 'Kawasan Pesisir Pantai Batam',
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.teal,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F766E),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -109,27 +121,6 @@ class TaskCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnail(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return Image.network(url, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _fallback());
-    } else if (url.isNotEmpty) {
-      final file = File(url);
-      if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _fallback());
-      }
-    }
-    return _fallback();
-  }
-
-  Widget _fallback() {
-    return Container(
-      color: AppTheme.background,
-      child: const Center(
-        child: Icon(Icons.image_not_supported_outlined, color: AppTheme.textMuted, size: 24),
       ),
     );
   }
