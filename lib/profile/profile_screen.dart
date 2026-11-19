@@ -83,73 +83,111 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // 2. Role Switcher for Demo & Presentation (Section 15.10 & 20)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Peralihan Cepat Peran Demo (Testing)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.navy,
+              // 2. Action Card based on Authentication State
+              if (isGuest) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Akses Akun CoastWatch',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.navy,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Pilih peran aktor di bawah ini untuk menguji hak akses atau membuka konsol admin:',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildRoleChip(context, 'Pengunjung', UserRole.guest, authService),
-                        const SizedBox(width: 6),
-                        _buildRoleChip(context, 'Pelapor', UserRole.reporter, authService),
-                        const SizedBox(width: 6),
-                        _buildRoleChip(context, 'Relawan', UserRole.cleaner, authService),
-                        const SizedBox(width: 6),
-                        _buildRoleChip(context, 'Admin', UserRole.admin, authService),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // Dedicated Admin Access Button (Always accessible for testing)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.navy,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Masuk dengan username/email dan kata sandi Anda untuk mengakses hak akses Pelapor, Relawan Pembersih, atau Admin.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.navy,
+                                foregroundColor: AppTheme.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.login, size: 16),
+                              label: const Text('Masuk ke Akun', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ),
                           ),
-                          elevation: 0,
-                        ),
-                        onPressed: () {
-                          if (!user.isAdmin) {
-                            authService.switchRoleForDemo(UserRole.admin);
-                          }
-                          Navigator.pushNamed(context, AppRoutes.adminShell);
-                        },
-                        child: Text(
-                          user.isAdmin ? 'Buka Konsol Admin CoastWatch' : 'Masuk sebagai Admin & Buka Konsol',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: const BorderSide(color: AppTheme.navy),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('Daftar Akun', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.navy)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ] else if (user.isAdmin) ...[
+                // Admin Console Entry
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.admin_panel_settings_outlined, color: AppTheme.navy, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Konsol Admin Operasional',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.navy),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Kelola verifikasi antrean laporan masuk, validasi aksi bersih relawan, dan pantau log audit sistem.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.navy,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => Navigator.pushNamed(context, AppRoutes.adminShell),
+                          child: const Text('Buka Konsol Admin', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
+              ],
 
               // 3. Information & Privacy Section (Section 15.9)
               const Text(
@@ -233,37 +271,6 @@ class ProfileScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildRoleChip(BuildContext context, String label, UserRole role, AuthService auth) {
-    final isSelected = auth.currentRole == role;
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          auth.switchRoleForDemo(role);
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.navy : AppTheme.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isSelected ? AppTheme.navy : AppTheme.border),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? AppTheme.white : AppTheme.navy,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
     );
   }
 

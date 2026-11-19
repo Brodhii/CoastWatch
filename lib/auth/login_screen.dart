@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
-  final TextEditingController _emailController = TextEditingController(text: 'admin@coastwatch.id');
-  final TextEditingController _passwordController = TextEditingController(text: 'admin123');
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -29,12 +29,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    final email = _emailController.text.trim();
+    final emailOrUsername = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
+    if (emailOrUsername.isEmpty || password.isEmpty) {
       setState(() {
-        _errorMessage = 'Harap isi email dan kata sandi.';
+        _errorMessage = 'Harap isi username atau email dan kata sandi.';
       });
       return;
     }
@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    final success = await _authService.signIn(email, password);
+    final success = await _authService.signIn(emailOrUsername, password);
 
     if (!mounted) return;
 
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Login gagal. Periksa kembali email dan kata sandi Anda.';
+        _errorMessage = 'Login gagal. Periksa kembali username/email dan kata sandi Anda.';
       });
     }
   }
@@ -87,26 +87,26 @@ class _LoginScreenState extends State<LoginScreen> {
               'Masuk untuk mengirimkan laporan pesisir atau mengelola tugas pembersihan relawan dan verifikasi admin.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Demo Accounts Card
+            // Clean Info Card
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.skyBlue.withValues(alpha: 0.35),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.teal.withValues(alpha: 0.2)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.info_outline, size: 16, color: AppTheme.navy),
+                      Icon(Icons.info_outline, size: 16, color: Color(0xFF0F172A)),
                       SizedBox(width: 6),
                       Text(
-                        'Akun Demo Pengujian (Klik untuk memilih):',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.navy),
+                        'Petunjuk Akun (Username & Kata Sandi):',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                       ),
                     ],
                   ),
@@ -114,40 +114,38 @@ class _LoginScreenState extends State<LoginScreen> {
                   InkWell(
                     onTap: () {
                       setState(() {
-                        _emailController.text = 'admin@coastwatch.id';
+                        _emailController.text = 'admin';
                         _passwordController.text = 'admin123';
                       });
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.admin_panel_settings_outlined, size: 14, color: AppTheme.navy),
-                          SizedBox(width: 6),
-                          Text('• Admin Konsol: admin@coastwatch.id', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.navy)),
-                        ],
-                      ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 2),
+                      child: Text('• Admin: admin / admin123', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
                     ),
                   ),
-                  const SizedBox(height: 4),
                   InkWell(
                     onTap: () {
                       setState(() {
-                        _emailController.text = 'pelapor@coastwatch.id';
+                        _emailController.text = 'relawan';
                         _passwordController.text = 'password123';
                       });
                     },
-                    child: const Text('• Pelapor: pelapor@coastwatch.id', style: TextStyle(fontSize: 11, color: AppTheme.teal)),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 2),
+                      child: Text('• Relawan: relawan / password123', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
+                    ),
                   ),
-                  const SizedBox(height: 4),
                   InkWell(
                     onTap: () {
                       setState(() {
-                        _emailController.text = 'relawan@coastwatch.id';
+                        _emailController.text = 'pelapor';
                         _passwordController.text = 'password123';
                       });
                     },
-                    child: const Text('• Relawan: relawan@coastwatch.id', style: TextStyle(fontSize: 11, color: AppTheme.teal)),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 2),
+                      child: Text('• Pelapor: pelapor / password123', style: TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
+                    ),
                   ),
                 ],
               ),
@@ -155,11 +153,11 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
 
             AppTextField(
-              label: 'Alamat Email',
-              hint: 'nama@contoh.id',
+              label: 'Username atau Email',
+              hint: 'Contoh: admin, relawan, atau nama@email.com',
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              prefixIcon: const Icon(Icons.email_outlined, size: 18),
+              prefixIcon: const Icon(Icons.person_outline, size: 18),
             ),
             const SizedBox(height: 16),
 

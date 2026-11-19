@@ -40,12 +40,18 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> signIn(String email, String password) async {
     final client = _supabaseService.client;
+    final trimmedInput = email.trim();
+    // Mendukung login menggunakan username maupun alamat email lengkap
+    final effectiveEmail = trimmedInput.contains('@')
+        ? trimmedInput
+        : '$trimmedInput@coastwatch.id';
+
     if (client != null && _supabaseService.isInitialized) {
       try {
-        final res = await client.auth.signInWithPassword(email: email, password: password);
+        final res = await client.auth.signInWithPassword(email: effectiveEmail, password: password);
         final user = res.user;
         if (user != null) {
-          String displayName = user.userMetadata?['display_name'] ?? email.split('@').first;
+          String displayName = user.userMetadata?['display_name'] ?? effectiveEmail.split('@').first;
           UserRole role = UserRoleExtension.fromString(user.userMetadata?['role'] as String?);
 
           // Cek profil dari tabel public.profiles untuk memastikan role akurat (admin/cleaner/reporter)
@@ -61,7 +67,7 @@ class AuthService extends ChangeNotifier {
 
           _currentUser = UserProfileModel(
             id: user.id,
-            email: user.email ?? email,
+            email: user.email ?? effectiveEmail,
             displayName: displayName,
             role: role,
             createdAt: DateTime.tryParse(user.createdAt) ?? DateTime.now(),
@@ -76,16 +82,18 @@ class AuthService extends ChangeNotifier {
     }
 
     // Demo/Fallback Auth (jika offline atau akun belum terdaftar di Supabase)
-    debugPrint('[AuthService] Menggunakan fallback mode demo untuk akun: $email');
+    debugPrint('[AuthService] Menggunakan fallback mode demo untuk akun: $effectiveEmail');
     final mock = MockDataService.mockUsers.firstWhere(
-      (u) => u.email.toLowerCase() == email.trim().toLowerCase(),
+      (u) =>
+          u.email.toLowerCase() == effectiveEmail.toLowerCase() ||
+          u.email.split('@').first.toLowerCase() == trimmedInput.toLowerCase(),
       orElse: () => UserProfileModel(
         id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
-        email: email.trim(),
-        displayName: email.split('@').first,
-        role: email.contains('admin')
+        email: effectiveEmail,
+        displayName: effectiveEmail.split('@').first,
+        role: effectiveEmail.contains('admin')
             ? UserRole.admin
-            : email.contains('clean') || email.contains('relawan')
+            : effectiveEmail.contains('clean') || effectiveEmail.contains('relawan')
                 ? UserRole.cleaner
                 : UserRole.reporter,
         createdAt: DateTime.now(),
