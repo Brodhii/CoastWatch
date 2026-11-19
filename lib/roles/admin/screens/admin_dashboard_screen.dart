@@ -33,110 +33,47 @@ class AdminDashboardScreen extends StatelessWidget {
             final isDesktop = w >= 980;
             final isSmall = w < 640;
 
-            return ListView(
-              padding: EdgeInsets.all(isSmall ? 14 : 20),
-              children: [
-                // 1. Tag & Header Title (Simple, minimal)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ringkasan Operasional',
-                            style: TextStyle(
-                              fontSize: isSmall ? 20 : 24,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0F172A),
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Pantau laporan masuk dan tindak lanjut verifikasi bukti lingkungan pesisir.',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.refresh, size: 14),
-                      onPressed: () async {
-                        final ok = await reportService.refreshFromCloud();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ok
-                                  ? 'Data Supabase cloud berhasil disinkronkan (${reportService.reports.length} laporan).'
-                                  : 'Gagal menyinkronkan data cloud.'),
-                            ),
-                          );
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF0F172A),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      ),
-                      label: const Text('Perbarui Data Cloud', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Cloud Status Banner
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: reportService.isCloudConnected
-                        ? const Color(0xFFECFDF5)
-                        : const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: reportService.isCloudConnected
-                          ? const Color(0xFFA7F3D0)
-                          : const Color(0xFFFDE68A),
-                    ),
-                  ),
-                  child: Row(
+            return RefreshIndicator(
+              color: const Color(0xFF0F172A),
+              onRefresh: () async {
+                await reportService.refreshFromCloud();
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(isSmall ? 14 : 20),
+                children: [
+                  // 1. Tag & Header Title (Simple, minimal)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        reportService.isCloudConnected
-                            ? Icons.cloud_done_rounded
-                            : Icons.cloud_off_rounded,
-                        size: 16,
-                        color: reportService.isCloudConnected
-                            ? const Color(0xFF059669)
-                            : const Color(0xFFD97706),
-                      ),
-                      const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          reportService.isCloudConnected
-                              ? 'Koneksi Supabase Live: ${reportService.reports.length} Laporan, ${reportService.categories.length} Kategori, ${reportService.auditLogs.length} Log'
-                              : 'Mode Demo Offline: Menghubungkan ke https://mxyptgfagmatwkzlnzqp.supabase.co...',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: reportService.isCloudConnected
-                                ? const Color(0xFF065F46)
-                                : const Color(0xFF92400E),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Ringkasan Operasional',
+                              style: TextStyle(
+                                fontSize: isSmall ? 20 : 24,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0F172A),
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Pantau laporan masuk dan tindak lanjut verifikasi bukti lingkungan pesisir.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
 
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // 2. Metric Cards (Card "Total Masuk" dihapus sesuai permintaan)
-                _buildMetricCards(w),
+                  // 2. Metric Cards (Card "Total Masuk" dihapus sesuai permintaan)
+                  _buildMetricCards(w),
 
                 const SizedBox(height: 20),
 
@@ -243,8 +180,9 @@ class AdminDashboardScreen extends StatelessWidget {
                     ],
                   ),
               ],
-            );
-          },
+            ),
+          );
+        },
         );
       },
     );

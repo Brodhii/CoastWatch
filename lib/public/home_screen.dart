@@ -113,60 +113,9 @@ class _HomeScreenState extends State<HomeScreen> {
               await _reportService.refreshFromCloud();
             },
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                // Cloud Database Connection Status Indicator
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _reportService.isCloudConnected
-                        ? const Color(0xFFECFDF5)
-                        : const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _reportService.isCloudConnected
-                          ? const Color(0xFFA7F3D0)
-                          : const Color(0xFFFDE68A),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _reportService.isCloudConnected
-                            ? Icons.cloud_done_rounded
-                            : Icons.cloud_queue_rounded,
-                        size: 16,
-                        color: _reportService.isCloudConnected
-                            ? const Color(0xFF059669)
-                            : const Color(0xFFD97706),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _reportService.isCloudConnected
-                              ? 'Supabase Cloud Terhubung (${_reportService.reports.length} Laporan Sinkron)'
-                              : 'Menghubungkan ke Supabase Cloud... (Tarik ke bawah untuk sinkron)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _reportService.isCloudConnected
-                                ? const Color(0xFF065F46)
-                                : const Color(0xFF92400E),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF475569)),
-                        onPressed: () => _reportService.refreshFromCloud(),
-                        tooltip: 'Sinkronkan Supabase',
-                      ),
-                    ],
-                  ),
-                ),
-
                 // 1. Header & Context Card
                 Container(
                   padding: const EdgeInsets.all(16),

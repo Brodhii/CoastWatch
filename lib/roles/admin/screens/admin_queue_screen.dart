@@ -38,48 +38,42 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
             final isDesktop = w >= 980;
             final isSmall = w < 640;
 
-            return ListView(
-              padding: EdgeInsets.all(isSmall ? 14 : 20),
-              children: [
-                // 1. Header (Simple, clean, without busy tabs)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Verifikasi Laporan',
-                            style: TextStyle(
-                              fontSize: isSmall ? 20 : 24,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0F172A),
-                              letterSpacing: -0.5,
+            return RefreshIndicator(
+              color: const Color(0xFF0F172A),
+              onRefresh: () async {
+                await _reportService.refreshFromCloud();
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(isSmall ? 14 : 20),
+                children: [
+                  // 1. Header (Simple, clean, without busy tabs)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Verifikasi Laporan',
+                              style: TextStyle(
+                                fontSize: isSmall ? 20 : 24,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0F172A),
+                                letterSpacing: -0.5,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${reports.length} laporan masuk menunggu peninjauan dan validasi sebelum dipublikasikan ke peta umum.',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              '${reports.length} laporan masuk menunggu peninjauan dan validasi sebelum dipublikasikan ke peta umum.',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF0F172A)),
-                      tooltip: 'Sinkronkan Supabase Cloud',
-                      onPressed: () async {
-                        final ok = await _reportService.refreshFromCloud();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(ok ? 'Data Supabase cloud berhasil disinkronkan (${_reportService.reports.length} laporan).' : 'Gagal menyinkronkan data cloud.')),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
                 const SizedBox(height: 16),
 
@@ -145,8 +139,9 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                   ),
                 ),
               ],
-            );
-          },
+            ),
+          );
+        },
         );
       },
     );
