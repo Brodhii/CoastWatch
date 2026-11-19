@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/app_theme.dart';
 import '../models/report_model.dart';
+import 'safe_app_image.dart';
 import 'status_badge.dart';
 
 class ReportCard extends StatelessWidget {
@@ -17,7 +17,12 @@ class ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(report.createdAt);
+    String formattedDate;
+    try {
+      formattedDate = DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(report.createdAt);
+    } catch (_) {
+      formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(report.createdAt);
+    }
 
     return InkWell(
       onTap: onTap,
@@ -39,7 +44,12 @@ class ReportCard extends StatelessWidget {
                 child: SizedBox(
                   width: 84,
                   height: 84,
-                  child: _buildThumbnail(report.beforePhotoUrl),
+                  child: SafeAppImage(
+                    imageUrl: report.beforePhotoUrl,
+                    width: 84,
+                    height: 84,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -89,7 +99,9 @@ class ReportCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            report.locationName ?? report.formattedCoordinates,
+                            report.locationName != null && report.locationName!.isNotEmpty
+                                ? report.locationName!
+                                : 'Kawasan Pesisir Pantai Batam',
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppTheme.textSecondary,
@@ -113,52 +125,6 @@ class ReportCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnail(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildFallbackImage(),
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return Container(
-            color: AppTheme.background,
-            child: const Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.teal),
-              ),
-            ),
-          );
-        },
-      );
-    } else if (url.isNotEmpty) {
-      final file = File(url);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildFallbackImage(),
-        );
-      }
-    }
-    return _buildFallbackImage();
-  }
-
-  Widget _buildFallbackImage() {
-    return Container(
-      color: AppTheme.background,
-      child: const Center(
-        child: Icon(
-          Icons.image_not_supported_outlined,
-          color: AppTheme.textMuted,
-          size: 28,
         ),
       ),
     );

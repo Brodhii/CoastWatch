@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,9 +7,14 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/app_theme.dart';
 import '../../../core/constants.dart';
+import '../../../models/report_model.dart';
+import '../../../services/auth_service.dart';
 import '../../../services/exif_service.dart';
 import '../../../services/location_service.dart';
+import '../../../services/report_service.dart';
 import '../../../shared/app_button.dart';
+import '../../../shared/camera_capture_screen.dart';
+import '../../../shared/status_badge.dart';
 import '../widgets/geotag_preview_card.dart';
 
 class CreateReportCameraScreen extends StatefulWidget {
@@ -22,81 +28,181 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
   final ImagePicker _picker = ImagePicker();
   final LocationService _locationService = LocationService();
   final ExifService _exifService = ExifService();
+  final ReportService _reportService = ReportService();
 
-  File? _imageFile;
+  XFile? _capturedFile;
+  Uint8List? _imageBytes;
   LocationResult? _captureLocation;
   ExifDataResult? _exifResult;
   bool _isProcessing = false;
 
-  Future<void> _takePhoto(ImageSource source) async {
-    setState(() {
-      _isProcessing = true;
-    });
+  // Validasi pencegahan laporan duplikat (≤ 10 meter)
+  ReportModel? _nearbyDuplicateReport;
+  double? _duplicateDistanceMeters;
+  bool _bypassDuplicateSimulation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Relawan tidak memiliki otorisasi membuat laporan
+    if (AuthService().currentRole == UserRole.cleaner) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Relawan pembersih hanya bertugas membersihkan sampah dari laporan pelapor.'),
+              backgroundColor: AppTheme.navy,
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  /// Buka Viewfinder Kamera interaktif CoastWatch (mendukung webcam laptop & kamera HP)
+  Future<void> _openCamera() async {
+    setState(() => _isProcessing = true);
 
     try {
-      // 1. Acquire current device location at capture time
-      final loc = await _locationService.getCurrentLocation();
-      _captureLocation = loc;
+      // 1. Ambil lokasi GPS secara instan/background
+      final locFuture = _locationService.getCurrentLocation();
 
-      // 2. Capture photo via Camera or Gallery
+      // 2. Buka layar kamera live viewfinder
+      final XFile? picture = await Navigator.push<XFile>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CameraCaptureScreen(
+            title: 'Kamera Bukti Pesisir',
+          ),
+        ),
+      );
+
+      if (picture == null) {
+        if (mounted) setState(() => _isProcessing = false);
+        return;
+      }
+
+      final loc = await locFuture;
+      _captureLocation = loc;
+      await _processImageFile(picture, loc);
+    } catch (e) {
+      debugPrint('[CreateReport] Error opening camera: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Kendala kamera: $e. Coba pilih foto dari galeri.'),
+            backgroundColor: AppTheme.statusRejected,
+          ),
+        );
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  /// Pilih foto dari galeri / penyimpanan laptop
+  Future<void> _pickFromGallery() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final locFuture = _locationService.getCurrentLocation();
+
       final XFile? pickedFile = await _picker.pickImage(
-        source: source,
+        source: ImageSource.gallery,
         maxWidth: 1920,
         maxHeight: 1080,
         imageQuality: 85,
       );
 
       if (pickedFile == null) {
-        setState(() {
-          _isProcessing = false;
-        });
+        if (mounted) setState(() => _isProcessing = false);
         return;
       }
 
-      final file = File(pickedFile.path);
-
-      // Check file size (max 5 MB as per Desain.md Section 7.3)
-      final length = await file.length();
-      if (length > AppConstants.maxFileSizeBytes) {
-        if (!mounted) return;
+      final loc = await locFuture;
+      _captureLocation = loc;
+      await _processImageFile(pickedFile, loc);
+    } catch (e) {
+      debugPrint('[CreateReport] Error picking image: $e');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ukuran foto melebihi 5 MB. Harap gunakan foto dengan ukuran lebih kecil.'),
+          SnackBar(
+            content: Text('Gagal memuat foto galeri: $e'),
             backgroundColor: AppTheme.statusRejected,
           ),
         );
-        setState(() {
-          _isProcessing = false;
-        });
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  /// Memproses berkas foto (validasi ukuran, ekstraksi EXIF GPS, geotagging)
+  Future<void> _processImageFile(XFile file, LocationResult? loc) async {
+    try {
+      final bytes = await file.readAsBytes();
+
+      // Validasi ukuran berkas (maksimal 5 MB sesuai Desain.md Bagian 7.3)
+      if (bytes.lengthInBytes > AppConstants.maxFileSizeBytes) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ukuran foto melebihi batas 5 MB. Harap gunakan foto dengan resolusi lebih ringkas.'),
+            backgroundColor: AppTheme.statusRejected,
+          ),
+        );
+        setState(() => _isProcessing = false);
         return;
       }
 
-      // 3. Extract and validate EXIF GPS metadata
-      final exif = await _exifService.extractExifData(file, fallbackLocation: loc);
+      // Ekstraksi EXIF GPS dengan fallback ke sensor perangkat
+      final exif = await _exifService.extractExifData(bytes, fallbackLocation: loc);
 
-      setState(() {
-        _imageFile = file;
-        _exifResult = exif;
-        _isProcessing = false;
-      });
+      // Cek apakah ada laporan aktif lain dalam radius 10 meter (pencegahan duplikat)
+      ReportModel? duplicate;
+      double? duplicateDist;
+      if (exif.latitude != null && exif.longitude != null) {
+        duplicate = _reportService.findNearbyActiveReport(
+          exif.latitude!,
+          exif.longitude!,
+          radiusMeters: AppConstants.duplicateReportRadiusMeters,
+        );
+        if (duplicate != null) {
+          duplicateDist = LocationService.calculateDistanceMeters(
+            exif.latitude!,
+            exif.longitude!,
+            duplicate.latitude,
+            duplicate.longitude,
+          );
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _capturedFile = file;
+          _imageBytes = bytes;
+          _exifResult = exif;
+          _nearbyDuplicateReport = duplicate;
+          _duplicateDistanceMeters = duplicateDist;
+          _isProcessing = false;
+        });
+      }
     } catch (e) {
-      debugPrint('[CreateReport] Error taking photo: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal memproses foto: $e'),
-          backgroundColor: AppTheme.statusRejected,
-        ),
-      );
-      setState(() {
-        _isProcessing = false;
-      });
+      debugPrint('[CreateReport] Error processing image bytes: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memproses metadata foto: $e'),
+            backgroundColor: AppTheme.statusRejected,
+          ),
+        );
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasValidPhotoAndGps = _imageFile != null && (_exifResult?.isValid ?? false);
+    final hasValidPhotoAndGps = _imageBytes != null && (_exifResult?.isValid ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -107,7 +213,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Progress Indicator
+            // Progress Indicator (Step 1 of 3)
             _buildStepIndicator(currentStep: 1),
             const SizedBox(height: 16),
 
@@ -125,7 +231,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Ambil foto temuan pesisir secara langsung di lokasi. Sistem membaca koordinat GPS dari sensor perangkat untuk validasi geotagging.',
+                      'Ambil foto temuan pesisir secara langsung atau pilih dari galeri. Sistem menyematkan koordinat GPS untuk validasi geotagging.',
                       style: TextStyle(fontSize: 12, color: AppTheme.navy, height: 1.3),
                     ),
                   ),
@@ -135,9 +241,9 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
             const SizedBox(height: 16),
 
             // Photo Preview or Camera Trigger Area
-            if (_imageFile == null)
+            if (_imageBytes == null)
               Container(
-                height: 240,
+                height: 250,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: AppTheme.background,
@@ -163,7 +269,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Pastikan izin kamera dan GPS aktif',
+                      'Buka kamera langsung atau pilih dari berkas/galeri',
                       style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                     ),
                     const SizedBox(height: 20),
@@ -171,19 +277,23 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: _isProcessing ? null : () => _takePhoto(ImageSource.camera),
+                          onPressed: _isProcessing ? null : _openCamera,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.navy,
                             foregroundColor: AppTheme.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           ),
                           icon: const Icon(Icons.camera_alt, size: 18),
                           label: const Text('Buka Kamera'),
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton.icon(
-                          onPressed: _isProcessing ? null : () => _takePhoto(ImageSource.gallery),
+                          onPressed: _isProcessing ? null : _pickFromGallery,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
                           icon: const Icon(Icons.photo_library_outlined, size: 18),
-                          label: const Text('Galeri'),
+                          label: const Text('Galeri / Berkas'),
                         ),
                       ],
                     ),
@@ -196,8 +306,8 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                 borderRadius: BorderRadius.circular(12),
                 child: Stack(
                   children: [
-                    Image.file(
-                      _imageFile!,
+                    Image.memory(
+                      _imageBytes!,
                       height: 220,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -213,7 +323,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.refresh, color: AppTheme.white, size: 20),
                           tooltip: 'Ambil Ulang Foto',
-                          onPressed: () => _takePhoto(ImageSource.camera),
+                          onPressed: _openCamera,
                         ),
                       ),
                     ),
@@ -228,6 +338,10 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                   exifData: _exifResult!,
                   accuracy: _captureLocation?.accuracy,
                 ),
+
+              // Peringatan Laporan Duplikat (Radius ≤ 10m)
+              if (_nearbyDuplicateReport != null)
+                _buildDuplicateWarningCard(),
 
               const SizedBox(height: 14),
 
@@ -283,26 +397,216 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
 
             // Next Step Button
             AppButton(
-              label: 'Lanjut ke Pilih Kategori',
-              onPressed: hasValidPhotoAndGps
-                  ? () {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.createReportForm,
-                        arguments: {
-                          'photoFile': _imageFile!,
-                          'latitude': _exifResult!.latitude!,
-                          'longitude': _exifResult!.longitude!,
-                          'accuracy': _captureLocation?.accuracy ?? 15.0,
-                          'photoTimestamp': _exifResult!.dateTimeOriginal ?? DateTime.now(),
-                        },
-                      );
-                    }
-                  : null,
+              label: (_nearbyDuplicateReport != null && !_bypassDuplicateSimulation)
+                  ? 'Titik Sudah Dilaporkan (Terkunci)'
+                  : 'Lanjut ke Pilih Kategori',
+              onPressed: hasValidPhotoAndGps ? _onProceedToForm : null,
               icon: Icons.arrow_forward,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _onProceedToForm() {
+    if (_nearbyDuplicateReport != null && !_bypassDuplicateSimulation) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.block, color: Color(0xFFDC2626), size: 22),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Laporan Duplikat Ditolak', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: Text(
+            'Titik ini berjarak ${_duplicateDistanceMeters?.toStringAsFixed(1) ?? '≤ 10'} meter '
+            'dari laporan aktif (${_nearbyDuplicateReport!.id}) dengan status: ${_nearbyDuplicateReport!.status.label}.\n\n'
+            'Untuk menjaga efisiensi relawan dan kebersihan basis data, warga lain tidak dapat mengirimkan laporan ganda di lokasi yang sama.\n\n'
+            'Jika sedang menguji coba di laptop, Anda dapat mengaktifkan centang "Bypass Simulasi Duplikat".',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tutup'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.publicReportDetail,
+                  arguments: _nearbyDuplicateReport!.id,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.teal,
+                foregroundColor: AppTheme.navy,
+              ),
+              child: const Text('Buka Laporan Tersebut'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.createReportForm,
+      arguments: {
+        'photoFile': _capturedFile != null && !kIsWeb ? File(_capturedFile!.path) : null,
+        'photoXFile': _capturedFile,
+        'imageBytes': _imageBytes,
+        'photoPath': _capturedFile?.path ?? '',
+        'latitude': _exifResult!.latitude!,
+        'longitude': _exifResult!.longitude!,
+        'accuracy': _captureLocation?.accuracy ?? 15.0,
+        'photoTimestamp': _exifResult!.dateTimeOriginal ?? DateTime.now(),
+        'bypassDuplicate': _bypassDuplicateSimulation,
+      },
+    );
+  }
+
+  Widget _buildDuplicateWarningCard() {
+    if (_nearbyDuplicateReport == null) return const SizedBox.shrink();
+
+    final report = _nearbyDuplicateReport!;
+    final distText = _duplicateDistanceMeters != null
+        ? '${_duplicateDistanceMeters!.toStringAsFixed(1)} meter'
+        : '≤ 10 meter';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFF87171), width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Titik Lokasi Ini Sudah Dilaporkan!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Jarak $distText',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Laporan aktif lain ditemukan dalam radius 10 meter dari titik ini. '
+            'Sampah pada titik ini sudah dilaporkan sebelumnya dan sedang dalam penanganan petugas/relawan.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF7F1D1D), height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFFECACA)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ID: ${report.id}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Kategori: ${report.categoryName}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusBadge(status: report.status, isCompact: true),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.publicReportDetail,
+                      arguments: report.id,
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFDC2626),
+                    side: const BorderSide(color: Color(0xFFDC2626)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  child: const Text('Lihat Laporan yang Sedang Aktif', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () {
+              setState(() => _bypassDuplicateSimulation = !_bypassDuplicateSimulation);
+            },
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Checkbox(
+                    value: _bypassDuplicateSimulation,
+                    activeColor: const Color(0xFFDC2626),
+                    onChanged: (val) {
+                      setState(() => _bypassDuplicateSimulation = val ?? false);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Bypass Simulasi Duplikat (Mode Pengembang / Uji Coba Laptop)',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF991B1B), fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

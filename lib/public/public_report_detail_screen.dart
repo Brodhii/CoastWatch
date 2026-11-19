@@ -1,11 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import '../core/app_theme.dart';
+import '../core/app_routes.dart';
 import '../core/constants.dart';
+import '../roles/cleaner/widgets/before_after_preview.dart';
+import '../services/auth_service.dart';
 import '../services/report_service.dart';
+import '../shared/app_button.dart';
+import '../shared/safe_app_image.dart';
 import '../shared/status_badge.dart';
 
 class PublicReportDetailScreen extends StatelessWidget {
@@ -16,6 +19,7 @@ class PublicReportDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reportService = ReportService();
+    final authService = AuthService();
     final report = reportService.getReportById(reportId);
 
     if (report == null) {
@@ -27,23 +31,36 @@ class PublicReportDetailScreen extends StatelessWidget {
       );
     }
 
-    final createdAtStr = DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(report.createdAt);
-    final photoTimeStr = report.exifDateTimeOriginal != null
-        ? DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(report.exifDateTimeOriginal!)
-        : 'Tidak tersimpan';
+    final targetDate = report.exifDateTimeOriginal ?? report.createdAt;
+    String photoTimeStr;
+    try {
+      photoTimeStr = DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(targetDate);
+    } catch (_) {
+      photoTimeStr = DateFormat('dd MMMM yyyy, HH:mm').format(targetDate);
+    }
+
+    final regionName = report.locationName != null && report.locationName!.isNotEmpty
+        ? report.locationName!
+        : 'Kawasan Pesisir Pantai Batam';
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(report.id),
+        title: const Text('Detail Laporan Pantai'),
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Large Main Proof Photo (Desain.md Section 15.8)
+            // Main Photo Evidence
             AspectRatio(
               aspectRatio: 16 / 10,
-              child: _buildMainPhoto(report.beforePhotoUrl),
+              child: SafeAppImage(
+                imageUrl: report.beforePhotoUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 220,
+              ),
             ),
 
             Padding(
@@ -51,219 +68,299 @@ class PublicReportDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Category & Status
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          report.categoryName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.navy,
-                          ),
+                  // Primary Information Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                report.categoryName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                            StatusBadge(status: report.status),
+                          ],
                         ),
-                      ),
-                      StatusBadge(status: report.status),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Description
-                  const Text(
-                    'Deskripsi Temuan',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textSecondary,
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF0F766E)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                regionName,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time_rounded, size: 15, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
+                            Text(
+                              photoTimeStr,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                        if (report.description.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Deskripsi Temuan Lapangan',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            report.description,
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.4),
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    report.description.isNotEmpty ? report.description : 'Tidak ada deskripsi tambahan.',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textPrimary,
-                      height: 1.4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const SizedBox(height: 12),
-
-                  // Geotag & Location Metadata
-                  const Text(
-                    'Verifikasi Lokasi & Geotag EXIF',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  _buildMetaRow(
-                    icon: Icons.place_outlined,
-                    label: 'Koordinat Resmi EXIF',
-                    value: report.formattedCoordinates,
-                  ),
-                  _buildMetaRow(
-                    icon: Icons.gps_fixed,
-                    label: 'Akurasi Sensor Perangkat',
-                    value: report.deviceLocationAccuracyM != null
-                        ? '±${report.deviceLocationAccuracyM!.toStringAsFixed(1)} meter'
-                        : 'Akurasi tidak dicatat',
-                  ),
-                  _buildMetaRow(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Waktu Pengambilan Foto',
-                    value: photoTimeStr,
-                  ),
-                  _buildMetaRow(
-                    icon: Icons.cloud_done_outlined,
-                    label: 'Waktu Diterima Server',
-                    value: createdAtStr,
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Mini Map Context (Section 15.6 point 4: pin cannot be moved)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppTheme.border),
-                      ),
-                      child: FlutterMap(
-                        options: MapOptions(
-                          initialCenter: LatLng(report.latitude, report.longitude),
-                          initialZoom: 14.5,
-                          interactionOptions: const InteractionOptions(
-                            flags: InteractiveFlag.none, // Static non-draggable mini preview
-                          ),
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: AppConstants.osmTileUrl,
-                            userAgentPackageName: AppConstants.osmUserAgent,
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: LatLng(report.latitude, report.longitude),
-                                width: 36,
-                                height: 36,
-                                child: const Icon(
-                                  Icons.location_on,
-                                  color: AppTheme.navy,
-                                  size: 36,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    '*Pin lokasi mini map bersifat baca-saja berdasarkan ekstraksi metadata EXIF resmi.',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Context Notice Card (Desain.md Section 15.8)
+                  // Map Card
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    width: double.infinity,
                     decoration: BoxDecoration(
-                      color: AppTheme.skyBlue.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.teal.withValues(alpha: 0.2)),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
-                    child: const Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.verified_user_outlined, size: 18, color: AppTheme.navy),
-                        SizedBox(width: 10),
-                        Expanded(
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
                           child: Text(
-                            'Status Terverifikasi menyatakan bukti foto dan tag GPS telah lulus verifikasi digital sistem CoastWatch. Data identitas pelapor dirahasiakan untuk privasi.',
-                            style: TextStyle(fontSize: 12, color: AppTheme.navy, height: 1.3),
+                            'Titik Lokasi Pantai',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                          ),
+                        ),
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(9),
+                            bottomRight: Radius.circular(9),
+                          ),
+                          child: SizedBox(
+                            height: 180,
+                            child: FlutterMap(
+                              options: MapOptions(
+                                initialCenter: LatLng(report.latitude, report.longitude),
+                                initialZoom: 14.5,
+                                interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate: AppConstants.osmTileUrl,
+                                  userAgentPackageName: AppConstants.osmUserAgent,
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: LatLng(report.latitude, report.longitude),
+                                      width: 32,
+                                      height: 32,
+                                      child: const Icon(Icons.location_on, color: Color(0xFF0F172A), size: 32),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  // In-Progress Notice (Clean white card with solid accent bar)
+                  if (report.status == ReportStatus.inProgress) ...[
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                            left: BorderSide(color: Color(0xFF0284C7), width: 3.5),
+                            top: BorderSide(color: Color(0xFFE2E8F0)),
+                            right: BorderSide(color: Color(0xFFE2E8F0)),
+                            bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.cleaning_services_outlined, color: Color(0xFF0284C7), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Sedang Dalam Proses Pembersihan',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Ditangani oleh ${report.cleanerName ?? "relawan pembersih pesisir CoastWatch"}.',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // Cleaned Notice & Before-After Comparison (Clean white card with solid green bar)
+                  if (report.status == ReportStatus.cleaned && report.afterPhotoUrl != null) ...[
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                            left: BorderSide(color: Color(0xFF16A34A), width: 3.5),
+                            top: BorderSide(color: Color(0xFFE2E8F0)),
+                            right: BorderSide(color: Color(0xFFE2E8F0)),
+                            bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.task_alt_rounded, color: Color(0xFF16A34A), size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Pantai Telah Berhasil Dibersihkan!',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                          if (report.cleanupTask?.notes != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Catatan relawan: "${report.cleanupTask!.notes}"',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          BeforeAfterPreview(
+                            beforePhotoUrl: report.beforePhotoUrl,
+                            afterPhotoUrl: report.afterPhotoUrl!,
+                            beforeLocation: regionName,
+                            afterLocation: regionName,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Cleaner Actions
+                if (authService.currentRole == UserRole.cleaner) ...[
+                  if (report.isAvailableForCleanup) ...[
+                    const SizedBox(height: 16),
+                    AppButton(
+                      label: 'Ambil & Kerjakan Tugas Pembersihan Ini',
+                      icon: Icons.lock_outline,
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.cleanerTaskDetail,
+                          arguments: report.id,
+                        );
+                      },
+                    ),
+                  ] else if (report.status == ReportStatus.inProgress) ...[
+                    const SizedBox(height: 16),
+                    if (report.cleanupTask?.cleanerId == authService.currentUser.id ||
+                        report.cleanupTask?.cleanerId == 'd0000000-0000-0000-0000-000000000002') ...[
+                      AppButton(
+                        label: 'Lanjutkan Tugas Pembersihan Saya',
+                        icon: Icons.cleaning_services_rounded,
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.cleanerTaskDetail,
+                            arguments: report.id,
+                          );
+                        },
+                      ),
+                    ] else ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            border: Border(
+                              left: BorderSide(color: Color(0xFFDC2626), width: 3.5),
+                              top: BorderSide(color: Color(0xFFE2E8F0)),
+                              right: BorderSide(color: Color(0xFFE2E8F0)),
+                              bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.lock_outline, size: 18, color: Color(0xFFDC2626)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tugas ini telah dikunci untuk ${report.cleanerName ?? "relawan lain"}.',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMetaRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: AppTheme.teal),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainPhoto(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _fallback(),
-      );
-    } else if (url.isNotEmpty) {
-      final file = File(url);
-      if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _fallback());
-      }
-    }
-    return _fallback();
-  }
-
-  Widget _fallback() {
-    return Container(
-      color: AppTheme.background,
-      child: const Center(
-        child: Icon(Icons.broken_image_outlined, size: 40, color: AppTheme.textMuted),
       ),
     );
   }

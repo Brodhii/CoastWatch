@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../core/app_theme.dart';
 import '../../../services/exif_service.dart';
 
 class GeotagPreviewCard extends StatelessWidget {
@@ -19,110 +18,104 @@ class GeotagPreviewCard extends StatelessWidget {
     final bool isAccuracyAcceptable = accuracy == null || accuracy! <= 50.0;
 
     final Color statusColor = !hasValidGps
-        ? AppTheme.statusRejected
-        : (isAccuracyAcceptable ? AppTheme.statusCleaned : AppTheme.statusPending);
-
-    final Color bgColor = !hasValidGps
-        ? AppTheme.statusRejectedBg
-        : (isAccuracyAcceptable ? AppTheme.statusCleanedBg : AppTheme.statusPendingBg);
-
-    final IconData statusIcon = !hasValidGps
-        ? Icons.cancel_outlined
-        : (isAccuracyAcceptable ? Icons.check_circle_outline : Icons.warning_amber_rounded);
+        ? const Color(0xFFDC2626)
+        : (isAccuracyAcceptable ? const Color(0xFF0F766E) : const Color(0xFFD97706));
 
     final String statusLabel = !hasValidGps
-        ? 'GPS Tidak Ditemukan'
-        : (isAccuracyAcceptable ? 'Geotag Sah & Akurat' : 'Geotag Perlu Perhatian');
+        ? 'Lokasi Pesisir Tidak Terdeteksi'
+        : (isAccuracyAcceptable ? 'Lokasi Pesisir Valid & Terverifikasi' : 'Lokasi Terdeteksi (Perlu Perhatian)');
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-      ),
+    String formattedTime = '';
+    if (hasValidGps && exifData.dateTimeOriginal != null) {
+      try {
+        formattedTime = DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(exifData.dateTimeOriginal!);
+      } catch (_) {
+        formattedTime = DateFormat('dd MMM yyyy, HH:mm').format(exifData.dateTimeOriginal!);
+      }
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            left: BorderSide(color: statusColor, width: 3.5),
+            top: const BorderSide(color: Color(0xFFE2E8F0)),
+            right: const BorderSide(color: Color(0xFFE2E8F0)),
+            bottom: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+        ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(statusIcon, color: statusColor, size: 20),
+              Icon(
+                hasValidGps ? Icons.verified_rounded : Icons.location_off_outlined,
+                color: statusColor,
+                size: 18,
+              ),
               const SizedBox(width: 8),
-              Text(
-                statusLabel,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: statusColor,
+              Expanded(
+                child: Text(
+                  statusLabel,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
+              if (accuracy != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '±${accuracy!.toStringAsFixed(0)}m',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            exifData.statusMessage,
-            style: TextStyle(
+            hasValidGps
+                ? 'Titik lokasi pantai berhasil diverifikasi secara digital oleh sensor GPS perangkat.'
+                : 'Foto tidak memiliki data lokasi pantai yang sah. Pastikan izin lokasi aktif.',
+            style: const TextStyle(
               fontSize: 12,
-              color: statusColor,
-              height: 1.3,
+              color: Color(0xFF475569),
+              height: 1.35,
             ),
           ),
-          if (hasValidGps) ...[
-            const SizedBox(height: 10),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
+          if (hasValidGps && exifData.dateTimeOriginal != null) ...[
+            const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.my_location, size: 14, color: AppTheme.navy),
+                const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF64748B)),
                 const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    exifData.formattedCoordinates,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.navy,
-                    ),
+                Text(
+                  'Waktu Foto: $formattedTime WIB',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
                   ),
                 ),
-                if (accuracy != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.white,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: statusColor.withValues(alpha: 0.4)),
-                    ),
-                    child: Text(
-                      '±${accuracy!.toStringAsFixed(0)}m',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: statusColor,
-                      ),
-                    ),
-                  ),
               ],
             ),
-            if (exifData.dateTimeOriginal != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.access_time, size: 14, color: AppTheme.textSecondary),
-                  const SizedBox(width: 6),
-                  Text(
-                    DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(exifData.dateTimeOriginal!),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

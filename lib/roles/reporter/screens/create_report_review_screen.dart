@@ -1,10 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/app_theme.dart';
+import '../../../core/constants.dart';
+import '../../../services/location_service.dart';
 import '../../../services/report_service.dart';
 import '../../../shared/app_button.dart';
+import '../../../shared/safe_app_image.dart';
+import '../../../shared/status_badge.dart';
 
 class CreateReportReviewScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
@@ -18,6 +23,13 @@ class CreateReportReviewScreen extends StatefulWidget {
 class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
   final ReportService _reportService = ReportService();
   bool _isSubmitting = false;
+  late bool _bypassDuplicateSimulation;
+
+  @override
+  void initState() {
+    super.initState();
+    _bypassDuplicateSimulation = widget.reportData['bypassDuplicate'] == true;
+  }
 
   Future<void> _submitReport() async {
     setState(() {
@@ -25,7 +37,10 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
     });
 
     try {
-      final photoFile = widget.reportData['photoFile'] as File;
+      final photoFile = widget.reportData['photoFile'] as File?;
+      final photoXFile = widget.reportData['photoXFile'];
+      final imageBytes = widget.reportData['imageBytes'] as Uint8List?;
+      final photoPath = widget.reportData['photoPath'] as String?;
       final categoryId = widget.reportData['categoryId'] as String;
       final categoryName = widget.reportData['categoryName'] as String;
       final description = widget.reportData['description'] as String;
@@ -38,6 +53,9 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
       // Call ReportService to submit report with EXIF coordinates
       final createdReport = await _reportService.submitReport(
         photoFile: photoFile,
+        photoXFile: photoXFile,
+        photoBytes: imageBytes,
+        photoPath: photoPath,
         categoryId: categoryId,
         categoryName: categoryName,
         description: description,
@@ -46,6 +64,7 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
         accuracy: accuracy,
         photoTimestamp: photoTimestamp,
         locationName: locationName,
+        bypassDuplicateCheck: _bypassDuplicateSimulation,
       );
 
       if (!mounted) return;
@@ -77,6 +96,7 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final photoFile = widget.reportData['photoFile'] as File?;
+    final imageBytes = widget.reportData['imageBytes'] as Uint8List?;
     final categoryName = widget.reportData['categoryName'] as String? ?? '-';
     final description = widget.reportData['description'] as String? ?? '';
     final latitude = widget.reportData['latitude'] as double? ?? 0.0;
@@ -88,6 +108,22 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
     final latDir = latitude >= 0 ? 'N' : 'S';
     final lngDir = longitude >= 0 ? 'E' : 'W';
     final coordsFormatted = '${latitude.abs().toStringAsFixed(4)}° $latDir, ${longitude.abs().toStringAsFixed(4)}° $lngDir';
+
+    // Cek laporan duplikat aktif dalam radius 10 meter
+    final duplicateReport = _reportService.findNearbyActiveReport(
+      latitude,
+      longitude,
+      radiusMeters: AppConstants.duplicateReportRadiusMeters,
+    );
+    final duplicateDist = duplicateReport != null
+        ? LocationService.calculateDistanceMeters(
+            latitude,
+            longitude,
+            duplicateReport.latitude,
+            duplicateReport.longitude,
+          )
+        : null;
+    final isBlocked = duplicateReport != null && !_bypassDuplicateSimulation;
 
     return Scaffold(
       appBar: AppBar(
@@ -116,17 +152,118 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Photo Preview
-            if (photoFile != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.file(
-                  photoFile,
-                  height: 190,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+            // Peringatan Duplikat (jika ada laporan aktif ≤ 10 meter)
+            if (duplicateReport != null) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF87171), width: 1.2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Titik Lokasi Ini Sudah Dilaporkan!',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDC2626),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Jarak ${duplicateDist?.toStringAsFixed(1) ?? '≤ 10'}m',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Laporan aktif lain ditemukan dalam radius 10 meter dari titik ini. '
+                      'Pengiriman laporan baru untuk titik yang sama dinonaktifkan guna menjaga efisiensi relawan.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF7F1D1D), height: 1.35),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Wilayah: ${duplicateReport.locationName ?? "Kawasan Pesisir Pantai"}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                const SizedBox(height: 2),
+                                Text('Kategori: ${duplicateReport.categoryName}',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+                              ],
+                            ),
+                          ),
+                          StatusBadge(status: duplicateReport.status, isCompact: true),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        setState(() => _bypassDuplicateSimulation = !_bypassDuplicateSimulation);
+                      },
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: Checkbox(
+                              value: _bypassDuplicateSimulation,
+                              activeColor: const Color(0xFFDC2626),
+                              onChanged: (val) {
+                                setState(() => _bypassDuplicateSimulation = val ?? false);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Expanded(
+                            child: Text(
+                              'Bypass Simulasi Duplikat (Mode Pengembang / Uji Coba Laptop)',
+                              style: TextStyle(fontSize: 10, color: Color(0xFF991B1B), fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 16),
+            ],
+
+            // Photo Preview
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SafeAppImage(
+                imageBytes: imageBytes,
+                imageUrl: photoFile?.path,
+                height: 190,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
 
             const SizedBox(height: 16),
 
@@ -186,10 +323,10 @@ class _CreateReportReviewScreenState extends State<CreateReportReviewScreen> {
             const SizedBox(height: 28),
 
             AppButton(
-              label: 'Kirim Laporan Geotag',
-              onPressed: _isSubmitting ? null : _submitReport,
+              label: isBlocked ? 'Titik Sudah Dilaporkan (Terkunci)' : 'Kirim Laporan Geotag',
+              onPressed: (_isSubmitting || isBlocked) ? null : _submitReport,
               isLoading: _isSubmitting,
-              icon: Icons.send_rounded,
+              icon: isBlocked ? Icons.block : Icons.send_rounded,
             ),
           ],
         ),
