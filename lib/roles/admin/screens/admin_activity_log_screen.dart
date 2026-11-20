@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../models/admin_audit_log_model.dart';
 import '../../../services/report_service.dart';
 
@@ -11,13 +12,28 @@ class AdminActivityLogScreen extends StatefulWidget {
 
 class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
   final ReportService _reportService = ReportService();
+  String _searchQuery = '';
+
+  List<AdminAuditLogModel> _getFilteredLogs(List<AdminAuditLogModel> allLogs) {
+    if (_searchQuery.trim().isEmpty) return allLogs;
+    final q = _searchQuery.trim().toLowerCase();
+    return allLogs.where((l) =>
+      l.targetId.toLowerCase().contains(q) ||
+      l.adminName.toLowerCase().contains(q) ||
+      l.adminRole.toLowerCase().contains(q) ||
+      l.actionType.toLowerCase().contains(q) ||
+      l.targetLocation.toLowerCase().contains(q) ||
+      l.summary.toLowerCase().contains(q)
+    ).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: _reportService,
       builder: (context, _) {
-        final logs = _reportService.auditLogs;
+        final allLogs = _reportService.auditLogs;
+        final logs = _getFilteredLogs(allLogs);
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -79,7 +95,7 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
                 const SizedBox(height: 16),
 
                 // 2. 4 Stat Cards
-                _build4StatCards(w),
+                _build4StatCards(w, allLogs),
 
                 const SizedBox(height: 16),
 
@@ -104,15 +120,15 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
 
                       const Divider(color: Color(0xFFE2E8F0), height: 1),
 
-                      // Pagination
+                      // Pagination / Summary
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Integritas Log: Sinkron penuh UTC+7',
-                              style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                            Text(
+                              'Menampilkan ${logs.length} entri riwayat aktivitas • Sinkron UTC+7',
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -159,7 +175,7 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
     );
   }
 
-  Widget _build4StatCards(double w) {
+  Widget _build4StatCards(double w, List<AdminAuditLogModel> allLogs) {
     double cardW;
     if (w < 600) {
       cardW = (w - 10) / 2;
@@ -167,33 +183,39 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
       cardW = (w - 30) / 4;
     }
 
+    final totalEntries = allLogs.length;
+    final verifiedCount = allLogs.where((l) => l.actionType.toUpperCase().contains('VERIFIKASI')).length;
+    final rejectedCount = allLogs.where((l) => l.actionType.toUpperCase().contains('TOLAK') || l.actionType.toUpperCase().contains('DUPLIKAT')).length;
+    final now = DateTime.now();
+    final todayCount = allLogs.where((l) => l.timestamp.year == now.year && l.timestamp.month == now.month && l.timestamp.day == now.day).length;
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
         _buildStatCard(
           width: cardW,
-          title: 'ENTRI TERDAFTAR',
-          count: '142',
-          sub: '+18 entri hari ini',
+          title: 'TOTAL AKTIVITAS',
+          count: '$totalEntries',
+          sub: '+$todayCount tercatat hari ini',
         ),
         _buildStatCard(
           width: cardW,
-          title: 'TERVERIFIKASI',
-          count: '98',
-          sub: 'Rasio terima 69%',
+          title: 'VERIFIKASI & PERSETUJUAN',
+          count: '$verifiedCount',
+          sub: 'Keputusan validasi aktif',
         ),
         _buildStatCard(
           width: cardW,
           title: 'TOLAK & DUPLIKAT',
-          count: '36',
-          sub: '25 Tolak • 11 Dup',
+          count: '$rejectedCount',
+          sub: 'Penyaringan laporan invalid',
         ),
         _buildStatCard(
           width: cardW,
           title: 'INTEGRITAS AUDIT',
           count: '100%',
-          sub: 'Hash valid sinkron',
+          sub: _reportService.isCloudConnected ? 'Cloud Supabase Terhubung' : 'Lokal Aktif Terenkripsi',
         ),
       ],
     );
@@ -238,12 +260,18 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
       height: 36,
       child: TextField(
         style: const TextStyle(fontSize: 12),
+        onChanged: (val) {
+          setState(() {
+            _searchQuery = val;
+          });
+        },
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-          hintText: 'Cari ID Laporan (CW-2026-...) atau Pengguna...',
+          hintText: 'Cari ID Laporan (#CW-...), Aktor, Tindakan, atau Wilayah...',
           hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
           fillColor: const Color(0xFFF8FAFC),
           filled: true,
+          prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFF64748B)),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
         ),
@@ -255,6 +283,24 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
 
   // DESKTOP TABLE
   Widget _buildDesktopAuditTable(List<AdminAuditLogModel> logs) {
+    if (logs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 36),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.history_toggle_off, size: 36, color: Color(0xFF94A3B8)),
+              SizedBox(height: 8),
+              Text(
+                'Belum ada catatan aktivitas yang sesuai dengan kriteria.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Container(
@@ -262,11 +308,11 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: const Row(
             children: [
-              SizedBox(width: 110, child: Text('WAKTU (WIB)', style: _colHeaderStyle)),
-              SizedBox(width: 120, child: Text('STAF ADMIN', style: _colHeaderStyle)),
-              SizedBox(width: 150, child: Text('JENIS TINDAKAN', style: _colHeaderStyle)),
-              SizedBox(width: 130, child: Text('OBJEK TERKAIT', style: _colHeaderStyle)),
-              Expanded(child: Text('RINGKASAN KEPUTUSAN & ALASAN', style: _colHeaderStyle)),
+              SizedBox(width: 120, child: Text('WAKTU (WIB)', style: _colHeaderStyle)),
+              Expanded(flex: 3, child: Text('AKTOR / PENGGUNA', style: _colHeaderStyle)),
+              Expanded(flex: 3, child: Text('JENIS TINDAKAN', style: _colHeaderStyle)),
+              Expanded(flex: 3, child: Text('OBJEK & LOKASI', style: _colHeaderStyle)),
+              Expanded(flex: 5, child: Text('RINGKASAN AKTIVITAS & CATATAN', style: _colHeaderStyle)),
             ],
           ),
         ),
@@ -282,37 +328,37 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
               children: [
                 // Waktu
                 SizedBox(
-                  width: 110,
+                  width: 120,
                   child: Text(
-                    '${log.timestamp.day} Okt 2024\n${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')} WIB',
+                    DateFormat('dd MMM yyyy\nHH:mm \'WIB\'', 'id_ID').format(log.timestamp),
                     style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), height: 1.3),
                   ),
                 ),
 
-                // Staf Admin
-                SizedBox(
-                  width: 120,
+                // Aktor / Staf
+                Expanded(
+                  flex: 3,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(log.adminName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                      Text(log.adminRole, style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                      Text(log.adminRole, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
                     ],
                   ),
                 ),
 
-                // JENIS TINDAKAN: Refined subtle badge, no harsh solid blocks
-                SizedBox(
-                  width: 150,
+                // JENIS TINDAKAN: Refined subtle badge
+                Expanded(
+                  flex: 3,
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: _buildActionTypeBadge(log.actionType),
                   ),
                 ),
 
-                // Objek Terkait
-                SizedBox(
-                  width: 130,
+                // Objek & Lokasi
+                Expanded(
+                  flex: 3,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -331,6 +377,7 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
 
                 // Ringkasan
                 Expanded(
+                  flex: 5,
                   child: Text(log.summary, style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B), height: 1.35)),
                 ),
               ],
@@ -400,6 +447,15 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
   }
 
   Widget _buildMobileAuditCards(List<AdminAuditLogModel> logs) {
+    if (logs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text('Belum ada catatan aktivitas.', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        ),
+      );
+    }
+
     return Column(
       children: logs.map((log) {
         return Container(
@@ -414,13 +470,18 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildActionTypeBadge(log.actionType),
-                  Text('${log.timestamp.day} Okt 2024, ${log.timestamp.hour}:${log.timestamp.minute}', style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+                  Text(
+                    DateFormat("dd MMM yyyy, HH:mm 'WIB'", 'id_ID').format(log.timestamp),
+                    style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
               Text('${log.targetId} • ${log.targetLocation}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
               const SizedBox(height: 2),
-              Text(log.summary, style: const TextStyle(fontSize: 10, color: Color(0xFF334155))),
+              Text('Oleh: ${log.adminName} (${log.adminRole})', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+              const SizedBox(height: 3),
+              Text(log.summary, style: const TextStyle(fontSize: 10, color: Color(0xFF334155), height: 1.3)),
             ],
           ),
         );

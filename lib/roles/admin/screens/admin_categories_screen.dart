@@ -127,12 +127,12 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: const Row(
             children: [
-              SizedBox(width: 40, child: Text('NO', style: _colHeaderStyle)),
+              SizedBox(width: 44, child: Text('NO', style: _colHeaderStyle)),
               Expanded(flex: 3, child: Text('NAMA KATEGORI & KODE', style: _colHeaderStyle)),
-              Expanded(flex: 5, child: Text('DESKRIPSI & CAKUPAN TEMUAN', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Text('TOTAL LAPORAN', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Text('STATUS', style: _colHeaderStyle)),
-              SizedBox(width: 170, child: Align(alignment: Alignment.centerRight, child: Text('PENGELOLAAN', style: _colHeaderStyle))),
+              Expanded(flex: 4, child: Text('DESKRIPSI & CAKUPAN TEMUAN', style: _colHeaderStyle)),
+              Expanded(flex: 2, child: Text('TOTAL LAPORAN', style: _colHeaderStyle)),
+              Expanded(flex: 1, child: Text('STATUS', style: _colHeaderStyle)),
+              SizedBox(width: 180, child: Align(alignment: Alignment.centerRight, child: Text('PENGELOLAAN', style: _colHeaderStyle))),
             ],
           ),
         ),
@@ -149,7 +149,7 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
             child: Row(
               children: [
                 SizedBox(
-                  width: 40,
+                  width: 44,
                   child: Text(index.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF64748B))),
                 ),
                 Expanded(
@@ -163,18 +163,21 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
                   ),
                 ),
                 Expanded(
-                  flex: 5,
+                  flex: 4,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: Text(cat.description, style: const TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.35)),
                   ),
                 ),
-                SizedBox(
-                  width: 90,
-                  child: Text('${cat.reportCount} Lap.', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    '${cat.reportCount} Laporan',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
                 ),
-                SizedBox(
-                  width: 90,
+                Expanded(
+                  flex: 1,
                   child: Text(
                     cat.isActive ? 'Aktif' : 'Nonaktif',
                     style: TextStyle(
@@ -185,7 +188,7 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> {
                   ),
                 ),
                 SizedBox(
-                  width: 170,
+                  width: 180,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

@@ -41,13 +41,115 @@ class ReportService extends ChangeNotifier {
   List<ReportModel> get reports => List.unmodifiable(_reports);
 
   List<AdminAuditLogModel> _auditLogs = [];
-  List<AdminAuditLogModel> get auditLogs => List.unmodifiable(_auditLogs);
+  List<AdminAuditLogModel> get auditLogs {
+    final Map<String, AdminAuditLogModel> merged = {};
+
+    // 1. Masukkan log eksplisit dari audit_logs / runtime admin
+    for (final log in _auditLogs) {
+      merged[log.id] = log;
+    }
+
+    // 2. Sintesiskan riwayat aktivitas lengkap dari seluruh laporan & status history
+    for (final report in _reports) {
+      final shortId = report.id.length > 8 ? '#${report.id.substring(0, 8)}' : '#${report.id}';
+      final loc = report.locationName ?? 'Wilayah Pesisir Terpantau';
+
+      // Event: Pengajuan laporan awal
+      final subKey = 'sub_${report.id}';
+      if (!merged.containsKey(subKey)) {
+        merged[subKey] = AdminAuditLogModel(
+          id: subKey,
+          timestamp: report.createdAt,
+          adminName: (report.reporterName?.isNotEmpty == true) ? report.reporterName! : 'Pelapor Warga',
+          adminRole: 'Pelapor Warga',
+          actionType: 'PENGAJUAN LAPORAN',
+          targetId: shortId,
+          targetLocation: loc,
+          summary: 'Mengajukan temuan sampah pesisir baru kategori "${report.categoryName}". ${report.description.isNotEmpty ? report.description : "Menunggu peninjauan verifikasi admin."}',
+        );
+      }
+
+      // Event dari riwayat status laporan
+      for (final h in report.statusHistory) {
+        final hKey = 'hist_${h.id}';
+        if (merged.containsKey(hKey)) continue;
+
+        String action = 'STATUS LAPORAN';
+        String role = 'Admin Operasional';
+        String summary = h.reason ?? 'Pembaruan status laporan';
+
+        if (h.toStatus == ReportStatus.verified) {
+          action = 'VERIFIKASI LAPORAN';
+          role = 'Admin Operasional';
+          summary = 'Laporan disetujui & dipublikasikan ke peta pemantauan GIS.';
+        } else if (h.toStatus == ReportStatus.rejected) {
+          action = 'TOLAK LAPORAN';
+          role = 'Admin Operasional';
+          summary = 'Laporan ditolak. Alasan: ${h.reason ?? "Tidak memenuhi kriteria bukti valid"}';
+        } else if (h.toStatus == ReportStatus.duplicate) {
+          action = 'TANDAI DUPLIKAT';
+          role = 'Admin Operasional';
+          summary = 'Laporan ditandai duplikat dalam radius temuan aktif.';
+        } else if (h.toStatus == ReportStatus.inProgress) {
+          action = 'AKSI PEMBERSIHAN';
+          role = 'Relawan Lapangan';
+          summary = 'Relawan memulai aksi pembersihan sampah di titik pesisir.';
+        } else if (h.toStatus == ReportStatus.pendingCleanupReview) {
+          action = 'UNGGAH BUKTI BERSIH';
+          role = 'Relawan Lapangan';
+          summary = 'Bukti pembersihan (${report.sackCount ?? 1} karung sampah) diunggah untuk verifikasi admin.';
+        } else if (h.toStatus == ReportStatus.cleaned) {
+          action = 'VERIFIKASI BERSIH';
+          role = 'Admin Operasional';
+          summary = 'Hasil pembersihan pesisir selesai diverifikasi dan dinyatakan pulih.';
+        }
+
+        merged[hKey] = AdminAuditLogModel(
+          id: hKey,
+          timestamp: h.createdAt,
+          adminName: (h.actorName?.isNotEmpty == true) ? h.actorName! : 'Staf Admin',
+          adminRole: role,
+          actionType: action,
+          targetId: shortId,
+          targetLocation: loc,
+          summary: summary,
+        );
+      }
+    }
+
+    final result = merged.values.toList();
+    result.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return List.unmodifiable(result);
+  }
 
   List<AdminUserModel> _adminUsers = [];
   List<AdminUserModel> get adminUsers => List.unmodifiable(_adminUsers);
 
   List<CategoryModel> _categories = [];
-  List<CategoryModel> get categories => List.unmodifiable(_categories);
+  List<CategoryModel> get categories {
+    final list = _categories.isNotEmpty ? _categories : CategoryModel.defaultCategories;
+    return list.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final cat = entry.value;
+
+      // Hitung total laporan aktual yang terhubung dengan kategori ini
+      final count = _reports.where((r) {
+        if (r.categoryId == cat.id) return true;
+        final rName = r.categoryName.trim().toLowerCase();
+        final cName = cat.name.trim().toLowerCase();
+        return rName.isNotEmpty && (rName == cName || rName.contains(cName) || cName.contains(rName));
+      }).length;
+
+      final code = (cat.code.isEmpty || cat.code == 'CW-CAT-00')
+          ? 'CW-CAT-${idx.toString().padLeft(2, '0')}'
+          : cat.code;
+
+      return cat.copyWith(
+        reportCount: count,
+        code: code,
+      );
+    }).toList();
+  }
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;

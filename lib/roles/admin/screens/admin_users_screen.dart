@@ -112,12 +112,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: const Row(
             children: [
-              Expanded(flex: 3, child: Text('RELAWAN / PENGGUNA', style: _colHeaderStyle)),
-              Expanded(flex: 3, child: Text('EMAIL (TERSAMARKAN)', style: _colHeaderStyle)),
-              Expanded(flex: 3, child: Text('WILAYAH PESISIR UTAMA', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Text('BERGABUNG', style: _colHeaderStyle)),
-              Expanded(flex: 2, child: Text('LAPORAN (VALID/TOLAK)', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Align(alignment: Alignment.centerRight, child: Text('VALIDITAS', style: _colHeaderStyle))),
+              Expanded(flex: 4, child: Text('RELAWAN / PENGGUNA', style: _colHeaderStyle)),
+              Expanded(flex: 4, child: Text('EMAIL (TERSAMARKAN)', style: _colHeaderStyle)),
+              Expanded(flex: 3, child: Text('PERAN & WILAYAH', style: _colHeaderStyle)),
+              Expanded(flex: 2, child: Text('BERGABUNG', style: _colHeaderStyle)),
+              SizedBox(width: 100, child: Align(alignment: Alignment.centerRight, child: Text('STATUS AKUN', style: _colHeaderStyle))),
             ],
           ),
         ),
@@ -135,7 +134,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               children: [
                 // User initials & Name
                 Expanded(
-                  flex: 3,
+                  flex: 4,
                   child: Row(
                     children: [
                       Container(
@@ -175,7 +174,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
                 // Masked email
                 Expanded(
-                  flex: 3,
+                  flex: 4,
                   child: Text(
                     user.maskedEmail,
                     style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: isSpam ? const Color(0xFFDC2626) : const Color(0xFF1E293B)),
@@ -183,41 +182,44 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   ),
                 ),
 
-                // Wilayah
+                // Peran & Wilayah
                 Expanded(
                   flex: 3,
                   child: Text(
                     user.primaryRegion,
-                    style: TextStyle(fontSize: 11, color: isSpam ? const Color(0xFFDC2626) : const Color(0xFF1E293B)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isSpam ? const Color(0xFFDC2626) : const Color(0xFF1E293B)),
                   ),
                 ),
 
                 // Bergabung
-                SizedBox(
-                  width: 90,
+                Expanded(
+                  flex: 2,
                   child: Text(
                     DateFormat('dd MMM yyyy', 'id_ID').format(user.joinedDate),
                     style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
                 ),
 
-                // Laporan
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    '${user.validReportsCount}V / ${user.rejectedReportsCount}X',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                  ),
-                ),
-
-                // Validitas
+                // Status Akun
                 SizedBox(
-                  width: 90,
+                  width: 100,
                   child: Align(
                     alignment: Alignment.centerRight,
-                    child: Text(
-                      '${(user.validityRate * 100).toInt()}%',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: isSpam ? const Color(0xFFDC2626) : const Color(0xFF0F172A)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isSpam ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: isSpam ? const Color(0xFFFCA5A5) : const Color(0xFFBBF7D0)),
+                      ),
+                      child: Text(
+                        isSpam ? 'Ditangguhkan' : 'Aktif',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isSpam ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -244,14 +246,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(u.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                  Text(u.id, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: u.isSuspended ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      u.isSuspended ? 'Ditangguhkan' : 'Aktif',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: u.isSuspended ? const Color(0xFFDC2626) : const Color(0xFF16A34A)),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 2),
               Text(u.maskedEmail, style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF64748B))),
-              Text(u.primaryRegion, style: const TextStyle(fontSize: 10, color: Color(0xFF334155))),
-              const SizedBox(height: 4),
-              Text('Total: ${u.totalReports} Laporan • Validitas: ${(u.validityRate * 100).toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 2),
+              Text('${u.primaryRegion} • Bergabung ${DateFormat("dd MMM yyyy", "id_ID").format(u.joinedDate)}', style: const TextStyle(fontSize: 10, color: Color(0xFF334155))),
             ],
           ),
         );
