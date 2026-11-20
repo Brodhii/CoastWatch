@@ -239,45 +239,38 @@ class _ReporterReportDetailScreenState extends State<ReporterReportDetailScreen>
                     ),
                   ],
 
-                  // Pending Cleanup Review Notice (Clean white card with solid purple accent border)
+                  // Pending Cleanup Review Notice (Clean white card with subtle neutral border)
                   if (report.status == ReportStatus.pendingCleanupReview) ...[
                     const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          border: Border(
-                            left: BorderSide(color: Color(0xFF7C3AED), width: 3.5),
-                            top: BorderSide(color: Color(0xFFE2E8F0)),
-                            right: BorderSide(color: Color(0xFFE2E8F0)),
-                            bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.fact_check_outlined, color: Color(0xFF7C3AED), size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Pembersihan Selesai — Menunggu Validasi Admin',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Relawan (${report.cleanerName ?? "Relawan"}) telah mengunggah bukti pembersihan dan sedang menunggu pengesahan akhir.',
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
-                                  ),
-                                ],
-                              ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.fact_check_outlined, color: Color(0xFF0F766E), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Pembersihan Selesai — Menunggu Validasi Admin',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Relawan (${report.cleanerName ?? "Relawan"}) telah mengunggah bukti pembersihan dan sedang menunggu pengesahan akhir.',
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

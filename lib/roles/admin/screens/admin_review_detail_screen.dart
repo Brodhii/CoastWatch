@@ -315,18 +315,18 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: report.isPendingCleanupReview ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
+                    color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(3),
                     border: Border.all(
-                      color: report.isPendingCleanupReview ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1),
+                      color: const Color(0xFFCBD5E1),
                     ),
                   ),
                   child: Text(
                     report.isPendingCleanupReview ? 'Bukti Relawan Masuk' : 'SHA-256 Valid',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: report.isPendingCleanupReview ? const Color(0xFF7C3AED) : const Color(0xFF334155),
+                      color: Color(0xFF334155),
                     ),
                   ),
                 ),
@@ -736,7 +736,7 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF7C3AED),
+              color: Color(0xFF0F766E),
               letterSpacing: 0.8,
             ),
           ),

@@ -504,9 +504,9 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                 child: OutlinedButton(
                   onPressed: () => widget.onNavigateToReview(report.id),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: report.isPendingCleanupReview ? const Color(0xFF7C3AED) : const Color(0xFF0F172A),
-                    backgroundColor: report.isPendingCleanupReview ? const Color(0xFFF5F3FF) : Colors.transparent,
-                    side: BorderSide(color: report.isPendingCleanupReview ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1)),
+                    foregroundColor: const Color(0xFF0F172A),
+                    backgroundColor: Colors.transparent,
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     minimumSize: Size.zero,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -609,9 +609,9 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                     child: OutlinedButton(
                       onPressed: () => widget.onNavigateToReview(report.id),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: report.isPendingCleanupReview ? const Color(0xFF7C3AED) : const Color(0xFF0F172A),
-                        backgroundColor: report.isPendingCleanupReview ? const Color(0xFFF5F3FF) : Colors.transparent,
-                        side: BorderSide(color: report.isPendingCleanupReview ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1)),
+                        foregroundColor: const Color(0xFF0F172A),
+                        backgroundColor: Colors.transparent,
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         minimumSize: Size.zero,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),

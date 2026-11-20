@@ -645,7 +645,7 @@ class AdminDashboardScreen extends StatelessWidget {
     final isDuplicate = log.actionType.contains('DUPLIKAT');
     final tagColor = isDanger
         ? const Color(0xFFDC2626)
-        : (isDuplicate ? const Color(0xFF7C3AED) : const Color(0xFF0F172A));
+        : (isDuplicate ? const Color(0xFF475569) : const Color(0xFF0F172A));
     final timeAgo = _timeAgo(log.timestamp);
 
     return Container(

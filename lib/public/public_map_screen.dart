@@ -572,36 +572,29 @@ class _PublicMapScreenState extends State<PublicMapScreen> {
               const SizedBox(height: 8),
             ],
           ] else if (report.status == ReportStatus.pendingCleanupReview) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    left: BorderSide(color: Color(0xFF7C3AED), width: 3),
-                    top: BorderSide(color: Color(0xFFE2E8F0)),
-                    right: BorderSide(color: Color(0xFFE2E8F0)),
-                    bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.fact_check_outlined, size: 15, color: Color(0xFF7C3AED)),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Pembersihan Selesai • Menunggu Pengesahan Admin',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF0F172A),
-                        ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.fact_check_outlined, size: 15, color: Color(0xFF0F766E)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pembersihan Selesai • Menunggu Pengesahan Admin',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),

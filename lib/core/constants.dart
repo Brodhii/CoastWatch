@@ -133,7 +133,7 @@ extension ReportStatusExtension on ReportStatus {
       case ReportStatus.inProgress:
         return const Color(0xFFC2410C); // Dark Orange / Amber
       case ReportStatus.pendingCleanupReview:
-        return const Color(0xFF6D28D9); // Purple
+        return const Color(0xFF0F766E); // Deep Teal (CoastWatch Accent)
       case ReportStatus.cleaned:
         return const Color(0xFF15803D); // Green
       case ReportStatus.rejected:
@@ -152,7 +152,7 @@ extension ReportStatusExtension on ReportStatus {
       case ReportStatus.inProgress:
         return const Color(0xFFFFEDD5); // Soft Orange
       case ReportStatus.pendingCleanupReview:
-        return const Color(0xFFEDE9FE); // Soft Purple
+        return const Color(0xFFCCFBF1); // Soft Teal
       case ReportStatus.cleaned:
         return const Color(0xFFDCFCE7); // Soft Green
       case ReportStatus.rejected:
