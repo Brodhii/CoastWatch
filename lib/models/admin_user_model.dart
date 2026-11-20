@@ -27,6 +27,13 @@ class AdminUserModel {
 
   int get totalReports => validReportsCount + rejectedReportsCount;
 
+  String get rawRole {
+    final lower = primaryRegion.toLowerCase();
+    if (lower.contains('admin')) return 'admin';
+    if (lower.contains('relawan') || isVerifiedRelawan) return 'cleaner';
+    return 'reporter';
+  }
+
   factory AdminUserModel.fromJson(Map<String, dynamic> json) {
     return AdminUserModel(
       id: json['id'] as String,

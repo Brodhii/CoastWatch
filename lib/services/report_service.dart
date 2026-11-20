@@ -1151,14 +1151,240 @@ class ReportService extends ChangeNotifier {
   }
 
   // ================= USER MANAGEMENT =================
+  Future<void> fetchAdminUsers() async {
+    final client = SupabaseService().client;
+    if (client == null) return;
+    try {
+      final profilesData = await client
+          .from('profiles')
+          .select()
+          .order('created_at', ascending: false);
+      if (profilesData.isNotEmpty) {
+        final liveUsers = (profilesData as List).map((p) {
+          final role = p['role'] as String? ?? 'reporter';
+          return AdminUserModel(
+            id: p['id'] as String,
+            name: p['display_name'] as String? ?? 'Pengguna',
+            maskedEmail: '${(p['display_name'] as String? ?? 'user').toLowerCase().replaceAll(' ', '.')}@coastwatch.id',
+            primaryRegion: role == 'cleaner' ? 'Relawan Pesisir' : (role == 'admin' ? 'Admin Operasional' : 'Pelapor Warga'),
+            joinedDate: DateTime.tryParse(p['created_at'] as String? ?? '') ?? DateTime.now(),
+            validReportsCount: 0,
+            rejectedReportsCount: 0,
+            validityRate: 1.0,
+            isVerifiedRelawan: role == 'cleaner',
+            isSuspended: !(p['is_active'] as bool? ?? true),
+          );
+        }).toList();
+        _adminUsers = liveUsers;
+        debugPrint('[ReportService] fetchAdminUsers synced ${_adminUsers.length} profiles.');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[ReportService] fetchAdminUsers error: $e');
+    }
+  }
+
+  Future<bool> adminAddUser({
+    required String name,
+    required String email,
+    required String role,
+    String? password,
+  }) async {
+    final client = SupabaseService().client;
+    final trimmedName = name.trim();
+    final trimmedEmail = email.trim().toLowerCase();
+    final cleanRole = (role == 'Admin Operasional' || role == 'admin')
+        ? 'admin'
+        : (role == 'Relawan Pesisir' || role == 'cleaner' ? 'cleaner' : 'reporter');
+    final pass = (password != null && password.trim().isNotEmpty) ? password.trim() : 'Password123!';
+
+    String newUserId = '';
+
+    if (client != null) {
+      try {
+        final authRes = await client.auth.signUp(
+          email: trimmedEmail.contains('@') ? trimmedEmail : '$trimmedEmail@coastwatch.id',
+          password: pass,
+          data: {
+            'display_name': trimmedName,
+            'role': cleanRole,
+          },
+        );
+        if (authRes.user != null) {
+          newUserId = authRes.user!.id;
+        }
+      } catch (e) {
+        debugPrint('[ReportService] adminAddUser signUp note: $e');
+      }
+
+      try {
+        final res = await client.from('profiles').insert({
+          if (newUserId.isNotEmpty) 'id': newUserId,
+          'display_name': trimmedName,
+          'role': cleanRole,
+          'is_active': true,
+        }).select().maybeSingle();
+
+        if (res != null && res['id'] != null) {
+          newUserId = res['id'] as String;
+        }
+      } catch (e) {
+        debugPrint('[ReportService] adminAddUser insert profile error: $e');
+      }
+    }
+
+    if (newUserId.isEmpty) {
+      newUserId = 'usr-${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    final newUser = AdminUserModel(
+      id: newUserId,
+      name: trimmedName,
+      maskedEmail: trimmedEmail.contains('@') ? trimmedEmail : '$trimmedEmail@coastwatch.id',
+      primaryRegion: cleanRole == 'cleaner' ? 'Relawan Pesisir' : (cleanRole == 'admin' ? 'Admin Operasional' : 'Pelapor Warga'),
+      joinedDate: DateTime.now(),
+      validReportsCount: 0,
+      rejectedReportsCount: 0,
+      validityRate: 1.0,
+      isVerifiedRelawan: cleanRole == 'cleaner',
+      isSuspended: false,
+    );
+
+    _adminUsers.insert(0, newUser);
+    _auditLogs.insert(
+      0,
+      AdminAuditLogModel(
+        id: 'audit-${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: DateTime.now(),
+        adminName: 'Admin CoastWatch',
+        adminRole: 'Admin Operasional',
+        actionType: 'TAMBAH_PENGGUNA',
+        targetId: '#CW-USR-${newUser.id.substring(0, newUser.id.length >= 6 ? 6 : newUser.id.length)}',
+        targetLocation: 'Database Supabase',
+        summary: 'Admin menambahkan akun pengguna baru "${newUser.name}" dengan peran ${newUser.primaryRegion}.',
+      ),
+    );
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> adminUpdateUser({
+    required String userId,
+    required String name,
+    required String role,
+    required bool isActive,
+    String? newPassword,
+  }) async {
+    final trimmedName = name.trim();
+    final cleanRole = (role == 'Admin Operasional' || role == 'admin')
+        ? 'admin'
+        : (role == 'Relawan Pesisir' || role == 'cleaner' ? 'cleaner' : 'reporter');
+
+    final client = SupabaseService().client;
+    if (client != null) {
+      try {
+        await client.from('profiles').update({
+          'display_name': trimmedName,
+          'role': cleanRole,
+          'is_active': isActive,
+        }).eq('id', userId);
+        debugPrint('[ReportService] Profile updated in Supabase: $userId');
+      } catch (e) {
+        debugPrint('[ReportService] Update profile error: $e');
+      }
+
+      if (newPassword != null && newPassword.trim().isNotEmpty) {
+        try {
+          final currentAuthUser = client.auth.currentUser;
+          if (currentAuthUser != null && currentAuthUser.id == userId) {
+            await client.auth.updateUser(UserAttributes(password: newPassword.trim()));
+          }
+        } catch (e) {
+          debugPrint('[ReportService] adminUpdateUser password note: $e');
+        }
+      }
+    }
+
+    final idx = _adminUsers.indexWhere((u) => u.id == userId);
+    if (idx != -1) {
+      final old = _adminUsers[idx];
+      _adminUsers[idx] = old.copyWith(
+        name: trimmedName,
+        primaryRegion: cleanRole == 'cleaner' ? 'Relawan Pesisir' : (cleanRole == 'admin' ? 'Admin Operasional' : 'Pelapor Warga'),
+        isVerifiedRelawan: cleanRole == 'cleaner',
+        isSuspended: !isActive,
+        statusNote: !isActive ? 'Dinonaktifkan oleh Admin' : null,
+      );
+    }
+
+    _auditLogs.insert(
+      0,
+      AdminAuditLogModel(
+        id: 'audit-${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: DateTime.now(),
+        adminName: 'Admin CoastWatch',
+        adminRole: 'Admin Operasional',
+        actionType: 'EDIT_PENGGUNA',
+        targetId: '#CW-USR-${userId.substring(0, userId.length >= 6 ? 6 : userId.length)}',
+        targetLocation: 'Database Supabase',
+        summary: 'Admin memperbarui profil pengguna "$trimmedName" (Peran: $cleanRole, Status: ${isActive ? "Aktif" : "Ditangguhkan"}).',
+      ),
+    );
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> adminDeleteUser(String userId) async {
+    final client = SupabaseService().client;
+    String deletedUserName = 'Pengguna';
+    final idx = _adminUsers.indexWhere((u) => u.id == userId);
+    if (idx != -1) {
+      deletedUserName = _adminUsers[idx].name;
+    }
+
+    if (client != null) {
+      try {
+        await client.from('profiles').delete().eq('id', userId);
+        debugPrint('[ReportService] Deleted profile $userId from Supabase');
+      } catch (e) {
+        debugPrint('[ReportService] Delete profile error (foreign key or constraint): $e');
+        try {
+          await client.from('profiles').update({'is_active': false}).eq('id', userId);
+          debugPrint('[ReportService] Soft-deactivated profile $userId due to FK constraint');
+        } catch (_) {}
+      }
+    }
+
+    _adminUsers.removeWhere((u) => u.id == userId);
+    _auditLogs.insert(
+      0,
+      AdminAuditLogModel(
+        id: 'audit-${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: DateTime.now(),
+        adminName: 'Admin CoastWatch',
+        adminRole: 'Admin Operasional',
+        actionType: 'HAPUS_PENGGUNA',
+        targetId: '#CW-USR-${userId.substring(0, userId.length >= 6 ? 6 : userId.length)}',
+        targetLocation: 'Database Supabase',
+        summary: 'Admin menghapus data pengguna "$deletedUserName" dari sistem database.',
+      ),
+    );
+    notifyListeners();
+    return true;
+  }
+
   void toggleUserSuspension(String userId) {
     final idx = _adminUsers.indexWhere((u) => u.id == userId);
     if (idx != -1) {
       final user = _adminUsers[idx];
+      final newSuspended = !user.isSuspended;
       _adminUsers[idx] = user.copyWith(
-        isSuspended: !user.isSuspended,
-        statusNote: !user.isSuspended ? 'Dinonaktifkan oleh Admin' : null,
+        isSuspended: newSuspended,
+        statusNote: newSuspended ? 'Dinonaktifkan oleh Admin' : null,
       );
+      SupabaseService().client?.from('profiles').update({
+        'is_active': !newSuspended,
+      }).eq('id', userId).then((_) {}).catchError((_) {});
       notifyListeners();
     }
   }
