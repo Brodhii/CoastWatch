@@ -94,8 +94,8 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
 
                 const SizedBox(height: 16),
 
-                // 2. 4 Stat Cards
-                _build4StatCards(w, allLogs),
+                // 2. 3 Stat Cards
+                _buildStatCards(w, allLogs),
 
                 const SizedBox(height: 16),
 
@@ -175,13 +175,8 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
     );
   }
 
-  Widget _build4StatCards(double w, List<AdminAuditLogModel> allLogs) {
-    double cardW;
-    if (w < 600) {
-      cardW = (w - 10) / 2;
-    } else {
-      cardW = (w - 30) / 4;
-    }
+  Widget _buildStatCards(double w, List<AdminAuditLogModel> allLogs) {
+    final double cardW = (w < 640) ? (w - 10) / 2 : (w - 20) / 3;
 
     final totalEntries = allLogs.length;
     final verifiedCount = allLogs.where((l) => l.actionType.toUpperCase().contains('VERIFIKASI')).length;
@@ -210,12 +205,6 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
           title: 'TOLAK & DUPLIKAT',
           count: '$rejectedCount',
           sub: 'Penyaringan laporan invalid',
-        ),
-        _buildStatCard(
-          width: cardW,
-          title: 'INTEGRITAS AUDIT',
-          count: '100%',
-          sub: _reportService.isCloudConnected ? 'Cloud Supabase Terhubung' : 'Lokal Aktif Terenkripsi',
         ),
       ],
     );
@@ -311,7 +300,7 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
               SizedBox(width: 120, child: Text('WAKTU (WIB)', style: _colHeaderStyle)),
               Expanded(flex: 3, child: Text('AKTOR / PENGGUNA', style: _colHeaderStyle)),
               Expanded(flex: 3, child: Text('JENIS TINDAKAN', style: _colHeaderStyle)),
-              Expanded(flex: 3, child: Text('OBJEK & LOKASI', style: _colHeaderStyle)),
+              Expanded(flex: 3, child: Text('LOKASI', style: _colHeaderStyle)),
               Expanded(flex: 5, child: Text('RINGKASAN AKTIVITAS & CATATAN', style: _colHeaderStyle)),
             ],
           ),
@@ -356,22 +345,20 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
                   ),
                 ),
 
-                // Objek & Lokasi
+                // Lokasi
                 Expanded(
                   flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        log.targetId,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      Text(log.targetLocation, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-                    ],
+                  child: Text(
+                    log.targetLocation.isNotEmpty ? log.targetLocation : '-',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: (log.targetLocation == '-' || log.targetLocation.isEmpty)
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF0F172A),
+                      fontWeight: (log.targetLocation == '-' || log.targetLocation.isEmpty)
+                          ? FontWeight.normal
+                          : FontWeight.w600,
+                    ),
                   ),
                 ),
 
@@ -477,7 +464,14 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
                 ],
               ),
               const SizedBox(height: 6),
-              Text('${log.targetId} • ${log.targetLocation}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              Text(
+                log.targetLocation.isNotEmpty ? log.targetLocation : '-',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: (log.targetLocation == '-' || log.targetLocation.isEmpty) ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                ),
+              ),
               const SizedBox(height: 2),
               Text('Oleh: ${log.adminName} (${log.adminRole})', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
               const SizedBox(height: 3),

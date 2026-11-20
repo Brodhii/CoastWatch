@@ -70,6 +70,16 @@ class ReportModel {
   int? get sackCount => cleanupTask?.sackCount;
   bool get isFieldWorkActive => cleanupTask?.fieldWorkStartedAt != null;
 
+  /// Kode tiket singkat & ramah manusia (Opsi 1: misal #CW-259A43 atau #CW-001)
+  String get ticketCode {
+    if (id.isEmpty) return '#CW-0001';
+    final clean = id.replaceAll('-', '').toUpperCase();
+    if (clean.length >= 6) {
+      return '#CW-${clean.substring(0, 6)}';
+    }
+    return '#CW-$clean';
+  }
+
   String get formattedCoordinates {
     final latDir = latitude >= 0 ? 'N' : 'S';
     final lngDir = longitude >= 0 ? 'E' : 'W';

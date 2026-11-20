@@ -104,14 +104,16 @@ class ReportService extends ChangeNotifier {
           summary = 'Hasil pembersihan pesisir selesai diverifikasi dan dinyatakan pulih.';
         }
 
+        final resolvedActor = resolveActorName(h.actorName, role == 'Relawan Lapangan' ? 'Budi Santoso (Relawan)' : 'Admin CoastWatch');
+
         merged[hKey] = AdminAuditLogModel(
           id: hKey,
           timestamp: h.createdAt,
-          adminName: (h.actorName?.isNotEmpty == true) ? h.actorName! : 'Staf Admin',
+          adminName: resolvedActor,
           adminRole: role,
           actionType: action,
           targetId: shortId,
-          targetLocation: loc,
+          targetLocation: (action == 'VERIFIKASI LAPORAN' || action == 'TOLAK LAPORAN' || action == 'TANDAI DUPLIKAT') ? '-' : loc,
           summary: summary,
         );
       }
@@ -120,6 +122,27 @@ class ReportService extends ChangeNotifier {
     final result = merged.values.toList();
     result.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return List.unmodifiable(result);
+  }
+
+  /// Resolusi nama aktor agar tidak menampilkan string UUID mentah (d000000-...)
+  String resolveActorName(String? rawActor, [String fallback = 'Staf Admin']) {
+    if (rawActor == null || rawActor.trim().isEmpty) return fallback;
+    final trimmed = rawActor.trim();
+
+    // Cek apakah rawActor adalah UUID
+    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(trimmed);
+    if (!isUuid) return trimmed;
+
+    // Coba temukan di _adminUsers
+    final found = _adminUsers.where((u) => u.id == trimmed);
+    if (found.isNotEmpty) return found.first.name;
+
+    // Cek ID pengguna bawaan sistem
+    if (trimmed == 'd0000000-0000-0000-0000-000000000001') return 'Admin CoastWatch';
+    if (trimmed == 'd0000000-0000-0000-0000-000000000002') return 'Budi Santoso (Relawan)';
+    if (trimmed == 'd0000000-0000-0000-0000-000000000003') return 'Siti Rahayu (Pelapor)';
+
+    return fallback;
   }
 
   List<AdminUserModel> _adminUsers = [];
@@ -264,7 +287,7 @@ class ReportService extends ChangeNotifier {
                   reportId: r['id'] as String,
                   fromStatus: h['from_status'] != null ? ReportStatusExtension.fromString(h['from_status'] as String?) : null,
                   toStatus: ReportStatusExtension.fromString(h['to_status'] as String?),
-                  actorName: h['actor_name'] as String? ?? h['actor_id'] as String? ?? 'Sistem',
+                  actorName: resolveActorName(h['actor_name'] as String? ?? h['actor_id'] as String?),
                   reason: h['reason'] as String?,
                   createdAt: DateTime.tryParse(h['created_at'] as String? ?? '') ?? DateTime.now(),
                 );
