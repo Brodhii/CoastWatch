@@ -367,15 +367,6 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
                           'Relawan: ${report.cleanerName ?? "Budi Relawan"}',
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
                         ),
-                        if (report.sackCount != null) ...[
-                          const SizedBox(width: 12),
-                          const Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFF0D9488)),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${report.sackCount} Karung Sampah',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0D9488)),
-                          ),
-                        ],
                       ],
                     ),
                     if (report.cleanerNotes != null && report.cleanerNotes!.isNotEmpty) ...[

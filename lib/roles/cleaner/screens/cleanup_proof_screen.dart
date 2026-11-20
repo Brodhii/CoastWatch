@@ -40,7 +40,6 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
   bool _isProcessing = false;
   bool _isSubmitting = false;
   bool _isSimulatingProximity = false;
-  int _sackCount = 1;
 
   @override
   void dispose() {
@@ -296,7 +295,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
         cleanupLat: _exifResult!.latitude!,
         cleanupLng: _exifResult!.longitude!,
         cleanupTimestamp: _exifResult!.dateTimeOriginal ?? DateTime.now(),
-        sackCount: _sackCount,
+        sackCount: 1,
         bypassProximity: _isSimulatingProximity,
       );
 
@@ -558,73 +557,6 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
               ],
             ],
 
-            const SizedBox(height: 18),
-
-            // Sack Counter Card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF0F766E), size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Estimasi Karung Sampah',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Jumlah karung sampah yang diangkut',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _sackCount > 1 ? () => setState(() => _sackCount--) : null,
-                        icon: const Icon(Icons.remove_circle_outline),
-                        color: _sackCount > 1 ? const Color(0xFF0F766E) : const Color(0xFFCBD5E1),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Text(
-                          '$_sackCount',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() => _sackCount++),
-                        icon: const Icon(Icons.add_circle_outline),
-                        color: const Color(0xFF0F766E),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
             if (report != null && hasValidPhoto) ...[
               const SizedBox(height: 18),
               BeforeAfterPreview(
@@ -638,10 +570,10 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
 
             const SizedBox(height: 18),
 
-            // Cleanup Action Notes
+            // Cleanup Action Notes / Deskripsi Penanganan
             AppTextField(
-              label: 'Catatan Penanganan & Tindak Lanjut',
-              hint: 'Contoh: Berhasil mengangkut 4 karung sampah plastik ke TPS, area pesisir telah bersih.',
+              label: 'Deskripsi Penanganan Pembersihan',
+              hint: 'Tuliskan deskripsi tindakan pembersihan yang telah dilakukan di lokasi pesisir...',
               controller: _notesController,
               maxLines: 3,
             ),

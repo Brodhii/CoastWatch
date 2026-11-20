@@ -39,31 +39,15 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
   final Set<int> _checkedSopIndices = {0, 1, 2, 3};
   final Set<int> _checkedFieldIndices = {0};
 
-  Timer? _fieldWorkTimer;
-
   @override
   void initState() {
     super.initState();
     _checkProximity();
-    _startFieldWorkTimerIfNeeded();
   }
 
   @override
   void dispose() {
-    _fieldWorkTimer?.cancel();
     super.dispose();
-  }
-
-  void _startFieldWorkTimerIfNeeded() {
-    _fieldWorkTimer?.cancel();
-    _fieldWorkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        final report = _reportService.getReportById(widget.reportId);
-        if (report != null && report.isFieldWorkActive && report.status == ReportStatus.inProgress) {
-          setState(() {});
-        }
-      }
-    });
   }
 
   Future<void> _checkProximity() async {
@@ -207,7 +191,7 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Aksi pembersihan lapangan dimulai! Timer pembersihan aktif.'),
+            content: Text('Aksi pembersihan lapangan dimulai!'),
             backgroundColor: Color(0xFF0F172A),
           ),
         );
@@ -221,16 +205,6 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
     } finally {
       if (mounted) setState(() => _isStartingFieldWork = false);
     }
-  }
-
-  String _formatTimerDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
-    }
-    return '$minutes:$seconds';
   }
 
   @override
@@ -447,14 +421,6 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
                                 const SizedBox(height: 12),
                                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
                                 const SizedBox(height: 10),
-                                if (report.sackCount != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Text(
-                                      'Sampah Terkumpul: ${report.sackCount} Karung',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                                    ),
-                                  ),
                                 Text(
                                   'Catatan Relawan: ${report.cleanupTask!.notes}',
                                   style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
@@ -711,10 +677,6 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
 
   // TAHAP 2: ACTIVE FIELD CLEANING MODE
   Widget _buildPhase2ActiveFieldCard(ReportModel report) {
-    final startTime = report.cleanupTask?.fieldWorkStartedAt ?? report.cleanupTask?.startedAt ?? DateTime.now();
-    final elapsed = DateTime.now().difference(startTime);
-    final timerString = _formatTimerDuration(elapsed);
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: Container(
@@ -748,31 +710,37 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
-                  timerString,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 7, color: Color(0xFF0284C7)),
+                    SizedBox(width: 5),
+                    Text(
+                      'Sedang Berlangsung',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0369A1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           const Text(
-            'Silakan kumpulkan sampah di lokasi dan pisahkan limbah berbahaya sebelum mengambil foto hasil bersih.',
+            'Silakan bersihkan sampah di lokasi pesisir dan dokumentasikan foto hasil bersih setelah selesai.',
             style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4),
           ),
           const SizedBox(height: 12),
 
           _buildFieldCheckItem(0, 'Kumpulkan seluruh sampah di area pesisir'),
           _buildFieldCheckItem(1, 'Pisahkan sampah plastik dan limbah pecahan tajam / B3'),
-          _buildFieldCheckItem(2, 'Ikat karung sampah rapat agar aman dari angin/ombak'),
+          _buildFieldCheckItem(2, 'Kemas dan amankan sampah agar tidak terbawa angin dan ombak pesisir'),
 
           const SizedBox(height: 16),
 

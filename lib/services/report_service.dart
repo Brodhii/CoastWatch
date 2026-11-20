@@ -100,8 +100,7 @@ class ReportService extends ChangeNotifier {
         } else if (h.toStatus == ReportStatus.pendingCleanupReview) {
           action = 'UNGGAH BUKTI BERSIH';
           role = 'Relawan Pesisir';
-          final sacks = report.sackCount ?? 1;
-          summary = 'Bukti pembersihan ($sacks karung sampah) diunggah untuk verifikasi admin.';
+          summary = 'Bukti foto pembersihan dan deskripsi diunggah untuk verifikasi admin.';
         } else if (h.toStatus == ReportStatus.cleaned) {
           action = 'SAHKAN PEMBERSIHAN';
           role = 'Admin Operasional';
@@ -141,7 +140,7 @@ class ReportService extends ChangeNotifier {
             targetId: code,
             targetLocation: loc,
             summary: cTask.completedAt != null
-                ? 'Relawan menyelesaikan aksi bersih pantai (${report.sackCount ?? 1} karung sampah). $notes'
+                ? 'Relawan menyelesaikan aksi pembersihan pantai. $notes'.trim()
                 : 'Relawan memulai aksi pembersihan di titik lokasi pesisir.',
           );
         }
