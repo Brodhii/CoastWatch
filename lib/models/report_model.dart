@@ -1,4 +1,5 @@
 import '../core/constants.dart';
+import '../services/location_service.dart';
 import 'cleanup_task_model.dart';
 import 'status_history_model.dart';
 
@@ -86,6 +87,23 @@ class ReportModel {
     return '${latitude.abs().toStringAsFixed(4)}° $latDir, ${longitude.abs().toStringAsFixed(4)}° $lngDir';
   }
 
+  /// Nama lokasi riil tempat berada (dinamis dari geocoder atau koordinat GPS nyata)
+  String get displayLocation {
+    final loc = locationName?.trim();
+    if (loc != null &&
+        loc.isNotEmpty &&
+        !loc.toLowerCase().contains('terpantau') &&
+        !loc.toLowerCase().contains('pantai batam') &&
+        !loc.toLowerCase().contains('pesisir indonesia')) {
+      return loc;
+    }
+    final cached = LocationService.getCachedAddress(latitude, longitude);
+    if (cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+    return formattedCoordinates;
+  }
+
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     return ReportModel(
       id: json['id'] as String? ?? 'rep-${DateTime.now().millisecondsSinceEpoch}',
@@ -101,7 +119,7 @@ class ReportModel {
       longitude: json['longitude'] is num
           ? (json['longitude'] as num).toDouble()
           : (double.tryParse(json['longitude']?.toString() ?? '0.0') ?? 0.0),
-      locationName: json['location_name'] as String? ?? 'Wilayah Pesisir Terpantau',
+      locationName: json['location_name'] as String?,
       exifDateTimeOriginal: json['exif_datetime_original'] != null
           ? DateTime.tryParse(json['exif_datetime_original'].toString())
           : null,

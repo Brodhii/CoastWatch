@@ -509,7 +509,13 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
       return;
     }
 
-    final fallbackCoordsName = 'Wilayah Pesisir (${_exifResult!.latitude!.toStringAsFixed(4)}, ${_exifResult!.longitude!.toStringAsFixed(4)})';
+    final lat = _exifResult!.latitude!;
+    final lng = _exifResult!.longitude!;
+    final latDir = lat >= 0 ? 'N' : 'S';
+    final lngDir = lng >= 0 ? 'E' : 'W';
+    final realLocName = _detectedLocationName ??
+        LocationService.getCachedAddress(lat, lng) ??
+        '${lat.abs().toStringAsFixed(4)}° $latDir, ${lng.abs().toStringAsFixed(4)}° $lngDir';
 
     Navigator.pushNamed(
       context,
@@ -519,10 +525,10 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
         'photoXFile': _capturedFile,
         'imageBytes': _imageBytes,
         'photoPath': _capturedFile?.path ?? '',
-        'latitude': _exifResult!.latitude!,
-        'longitude': _exifResult!.longitude!,
+        'latitude': lat,
+        'longitude': lng,
         'accuracy': _captureLocation?.accuracy ?? 15.0,
-        'locationName': _detectedLocationName ?? fallbackCoordsName,
+        'locationName': realLocName,
         'photoTimestamp': _exifResult!.dateTimeOriginal ?? DateTime.now(),
         'bypassDuplicate': _bypassDuplicateSimulation,
       },

@@ -200,9 +200,7 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
 
   // BREADCRUMBS & TITLE HEADER (Human-centered, clean typography)
   Widget _buildBreadcrumbsAndTitle(ReportModel report, bool isSmall) {
-    final regionName = report.locationName != null && report.locationName!.isNotEmpty
-        ? report.locationName!
-        : 'Kawasan Pesisir Pantai Batam';
+    final regionName = report.displayLocation;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,9 +417,7 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
 
   // 2. CARD: GIS MAP (Clean location display)
   Widget _buildGisMapCard(ReportModel report) {
-    final regionName = report.locationName != null && report.locationName!.isNotEmpty
-        ? report.locationName!
-        : 'Kawasan Pesisir Pantai Batam';
+    final regionName = report.displayLocation;
 
     return Container(
       decoration: BoxDecoration(
@@ -499,7 +495,7 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
           Padding(
             padding: const EdgeInsets.all(10),
             child: Text(
-              'Wilayah: ${report.locationName ?? "Kawasan Pesisir Pantai Batam"}',
+              'Wilayah: ${report.displayLocation}',
               style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ),

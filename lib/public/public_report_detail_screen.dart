@@ -6,21 +6,45 @@ import '../core/app_routes.dart';
 import '../core/constants.dart';
 import '../roles/cleaner/widgets/before_after_preview.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import '../services/report_service.dart';
 import '../shared/app_button.dart';
 import '../shared/safe_app_image.dart';
 import '../shared/status_badge.dart';
 
-class PublicReportDetailScreen extends StatelessWidget {
+class PublicReportDetailScreen extends StatefulWidget {
   final String reportId;
 
   const PublicReportDetailScreen({super.key, required this.reportId});
 
   @override
+  State<PublicReportDetailScreen> createState() => _PublicReportDetailScreenState();
+}
+
+class _PublicReportDetailScreenState extends State<PublicReportDetailScreen> {
+  String? _resolvedAddress;
+
+  @override
+  void initState() {
+    super.initState();
+    final report = ReportService().getReportById(widget.reportId);
+    if (report != null) {
+      _resolvedAddress = LocationService.getCachedAddress(report.latitude, report.longitude);
+      if (_resolvedAddress == null) {
+        LocationService.getAddressFromCoordinates(report.latitude, report.longitude).then((addr) {
+          if (mounted && addr != null && addr.isNotEmpty) {
+            setState(() => _resolvedAddress = addr);
+          }
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final reportService = ReportService();
     final authService = AuthService();
-    final report = reportService.getReportById(reportId);
+    final report = reportService.getReportById(widget.reportId);
 
     if (report == null) {
       return Scaffold(
@@ -39,9 +63,7 @@ class PublicReportDetailScreen extends StatelessWidget {
       photoTimeStr = DateFormat('dd MMMM yyyy, HH:mm').format(targetDate);
     }
 
-    final regionName = report.locationName != null && report.locationName!.isNotEmpty
-        ? report.locationName!
-        : 'Kawasan Pesisir Pantai Batam';
+    final regionName = _resolvedAddress ?? report.displayLocation;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),

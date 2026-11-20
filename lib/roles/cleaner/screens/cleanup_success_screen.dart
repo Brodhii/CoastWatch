@@ -80,9 +80,7 @@ class CleanupSuccessScreen extends StatelessWidget {
                       StatusBadge(status: report!.status == ReportStatus.cleaned ? ReportStatus.cleaned : ReportStatus.pendingCleanupReview),
                       const SizedBox(height: 8),
                       Text(
-                        report!.locationName != null && report!.locationName!.isNotEmpty
-                            ? report!.locationName!
-                            : 'Kawasan Pesisir Pantai Batam',
+                        report!.displayLocation,
                         style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                         textAlign: TextAlign.center,
                       ),

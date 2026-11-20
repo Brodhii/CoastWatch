@@ -170,10 +170,32 @@ class LocationService {
     }
   }
 
-  /// Mendapatkan nama wilayah pesisir dari koordinat GPS nyata (reverse geocoding)
+  // Cache geocoding di memori agar performa cepat dan hemat request
+  static final Map<String, String> _addressCache = {};
+
+  static String _cacheKey(double lat, double lng) =>
+      '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
+
+  /// Mengambil nama lokasi dari cache jika sudah pernah di-resolve sebelumnya
+  static String? getCachedAddress(double lat, double lng) =>
+      _addressCache[_cacheKey(lat, lng)];
+
+  /// Menyimpan nama lokasi ke cache memori
+  static void cacheAddress(double lat, double lng, String address) {
+    if (address.trim().isNotEmpty) {
+      _addressCache[_cacheKey(lat, lng)] = address.trim();
+    }
+  }
+
+  /// Mendapatkan nama tempat/lokasi nyata di mana kita berada dari koordinat GPS
   static Future<String?> getAddressFromCoordinates(double lat, double lng) async {
+    final key = _cacheKey(lat, lng);
+    if (_addressCache.containsKey(key)) {
+      return _addressCache[key];
+    }
+
     try {
-      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=14&addressdetails=1');
+      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1');
       final resp = await http.get(url, headers: {
         'User-Agent': 'CoastWatch-App/1.0',
       }).timeout(const Duration(seconds: 4));
@@ -182,24 +204,51 @@ class LocationService {
         final data = json.decode(resp.body) as Map<String, dynamic>;
         final address = data['address'] as Map<String, dynamic>?;
         if (address != null) {
-          final beach = address['natural'] ?? address['leisure'] ?? address['amenity'] ?? address['beach'];
-          final subdistrict = address['suburb'] ?? address['village'] ?? address['town'] ?? address['city_district'];
-          final city = address['city'] ?? address['regency'] ?? address['county'];
+          final road = address['road'] ?? address['pedestrian'] ?? address['street'] ?? address['path'];
+          final beach = address['beach'] ?? address['natural'] ?? address['leisure'] ?? address['amenity'];
+          final area = address['neighbourhood'] ?? address['suburb'] ?? address['village'] ?? address['hamlet'];
+          final district = address['city_district'] ?? address['subdistrict'];
+          final city = address['town'] ?? address['city'] ?? address['county'] ?? address['regency'];
 
-          final parts = [beach, subdistrict, city].where((p) => p != null && p.toString().isNotEmpty).toList();
+          final place = beach ?? road;
+          final subArea = area ?? district;
+          final region = city;
+
+          final parts = [place, subArea, region].where((p) => p != null && p.toString().trim().isNotEmpty).toList();
           if (parts.isNotEmpty) {
-            return 'Pesisir ${parts.join(', ')}';
+            final formatted = parts.join(', ');
+            _addressCache[key] = formatted;
+            return formatted;
           }
         }
         final displayName = data['display_name'] as String?;
         if (displayName != null && displayName.isNotEmpty) {
-          return displayName.split(',').take(2).join(', ').trim();
+          final formatted = displayName.split(',').take(3).join(', ').trim();
+          _addressCache[key] = formatted;
+          return formatted;
         }
       }
     } catch (e) {
       debugPrint('[LocationService] Reverse geocode error: $e');
     }
-    return 'Wilayah Pesisir (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})';
+
+    // Jika gagal / offline, gunakan koordinat GPS nyata yang presisi tempat perangkat berada
+    final latDir = lat >= 0 ? 'N' : 'S';
+    final lngDir = lng >= 0 ? 'E' : 'W';
+    final fallbackCoords = '${lat.abs().toStringAsFixed(4)}° $latDir, ${lng.abs().toStringAsFixed(4)}° $lngDir';
+    _addressCache[key] = fallbackCoords;
+    return fallbackCoords;
+  }
+
+  /// Helper untuk memastikan nama lokasi selalu riil tempat perangkat berada
+  static Future<String> resolveRealLocation(double lat, double lng) async {
+    final cached = getCachedAddress(lat, lng);
+    if (cached != null && cached.isNotEmpty) return cached;
+    final resolved = await getAddressFromCoordinates(lat, lng);
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    final latDir = lat >= 0 ? 'N' : 'S';
+    final lngDir = lng >= 0 ? 'E' : 'W';
+    return '${lat.abs().toStringAsFixed(4)}° $latDir, ${lng.abs().toStringAsFixed(4)}° $lngDir';
   }
 
   static bool validateCoordinates(double lat, double lng) {

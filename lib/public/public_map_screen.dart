@@ -425,9 +425,7 @@ class _PublicMapScreenState extends State<PublicMapScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      report.locationName != null && report.locationName!.isNotEmpty
-                          ? report.locationName!
-                          : 'Kawasan Pesisir Pantai Batam',
+                      report.displayLocation,
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF64748B),

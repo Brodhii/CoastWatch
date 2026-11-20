@@ -385,7 +385,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
 
             if (report != null) ...[
               Text(
-                'Wilayah: ${report.locationName ?? "Kawasan Pesisir Pantai Batam"} • ${report.categoryName}',
+                'Wilayah: ${report.displayLocation} • ${report.categoryName}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
               ),
               const SizedBox(height: 12),
@@ -563,8 +563,10 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
                 beforePhotoUrl: report.beforePhotoUrl,
                 afterPhotoUrl: (!kIsWeb && _proofImageFile != null) ? _proofImageFile!.path : (_proofXFile?.path ?? report.beforePhotoUrl),
                 afterPhotoBytes: _proofImageBytes,
-                beforeLocation: report.locationName ?? 'Kondisi Awal Pesisir',
-                afterLocation: report.locationName ?? 'Kondisi Sesudah Bersih',
+                beforeLocation: report.displayLocation,
+                afterLocation: _captureLocation != null
+                    ? (LocationService.getCachedAddress(_captureLocation!.latitude, _captureLocation!.longitude) ?? report.displayLocation)
+                    : report.displayLocation,
               ),
             ],
 

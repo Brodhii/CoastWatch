@@ -99,9 +99,7 @@ class ReportCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            report.locationName != null && report.locationName!.isNotEmpty
-                                ? report.locationName!
-                                : 'Kawasan Pesisir Pantai Batam',
+                            report.displayLocation,
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppTheme.textSecondary,

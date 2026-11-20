@@ -52,7 +52,7 @@ class ReportService extends ChangeNotifier {
     // 2. Sintesiskan riwayat aktivitas lengkap dari seluruh laporan live di database Supabase
     for (final report in _reports) {
       final code = report.ticketCode;
-      final loc = report.locationName ?? 'Wilayah Pesisir Terpantau';
+      final loc = report.displayLocation;
 
       // Event: Pengajuan laporan awal warga
       final subKey = 'sub_${report.id}';
@@ -174,28 +174,13 @@ class ReportService extends ChangeNotifier {
     return fallback;
   }
 
-  /// Resolusi nama pesisir realistis berdasarkan koordinat atau deskripsi
+  /// Resolusi nama lokasi nyata berdasarkan koordinat GPS perangkat
   static String resolveCoastalLocation(double lat, double lng, [String? desc]) {
-    final d = (desc ?? '').toLowerCase();
-    if (d.contains('nongsa')) return 'Pantai Nongsa, Batam';
-    if (d.contains('melur')) return 'Pantai Melur, Barelang, Batam';
-    if (d.contains('barelang')) return 'Kawasan Jembatan Barelang, Batam';
-    if (d.contains('tanjung pinggir')) return 'Pantai Tanjung Pinggir, Sekupang';
-    if (d.contains('batu ampar') || d.contains('muara') || d.contains('pelabuhan')) return 'Muara Pelabuhan Batu Ampar, Batam';
-    if (d.contains('bengkong')) return 'Pesisir Bengkong, Batam';
-    if (d.contains('piayu')) return 'Pesisir Tanjung Piayu Laut, Batam';
-    if (d.contains('galang')) return 'Pesisir Pantai Melayu, Pulau Galang';
-    if (d.contains('kuta')) return 'Pantai Kuta, Badung';
-
-    if (lat >= 1.15 && lng >= 104.08) return 'Pantai Nongsa, Batam';
-    if (lat >= 1.11 && lng >= 104.02) return 'Pantai Tanjung Pinggir, Sekupang';
-    if (lat >= 1.07 && lng >= 103.96) return 'Muara Pelabuhan Batu Ampar, Batam';
-    if (lat >= 1.03 && lng >= 104.01) return 'Pesisir Pantai Ocarina, Batam Center';
-    if (lat >= 0.90 && lat <= 0.95 && lng >= 104.45) return 'Pantai Melur, Jembatan 5 Barelang';
-    if (lat >= 0.82 && lat <= 0.88 && lng >= 104.55) return 'Pesisir Sijantung, Pulau Galang';
-    if (lat >= 0.95 && lat <= 1.05 && lng >= 104.00) return 'Pesisir Tanjung Piayu Laut, Batam';
-
-    return 'Pesisir Batam (${lat.toStringAsFixed(4)}°N, ${lng.toStringAsFixed(4)}°E)';
+    final cached = LocationService.getCachedAddress(lat, lng);
+    if (cached != null && cached.isNotEmpty) return cached;
+    final latDir = lat >= 0 ? 'N' : 'S';
+    final lngDir = lng >= 0 ? 'E' : 'W';
+    return '${lat.abs().toStringAsFixed(4)}° $latDir, ${lng.abs().toStringAsFixed(4)}° $lngDir';
   }
 
   List<AdminUserModel> _adminUsers = [];
@@ -372,6 +357,19 @@ class ReportService extends ChangeNotifier {
             _isCloudConnected = true;
             debugPrint('[ReportService] Synced ${_reports.length} reports from Supabase cloud (LIVE).');
             notifyListeners();
+
+            // Background auto-reverse geocoding: resolve alamat nyata setiap laporan tanpa freeze UI
+            for (final rep in List<ReportModel>.from(_reports)) {
+              LocationService.getAddressFromCoordinates(rep.latitude, rep.longitude).then((addr) {
+                if (addr != null && addr.isNotEmpty) {
+                  final idx = _reports.indexWhere((r) => r.id == rep.id);
+                  if (idx != -1 && _reports[idx].locationName != addr) {
+                    _reports[idx] = _reports[idx].copyWith(locationName: addr);
+                    notifyListeners();
+                  }
+                }
+              }).catchError((_) {});
+            }
           }
         }
       } catch (e) {
@@ -456,7 +454,7 @@ class ReportService extends ChangeNotifier {
 
             if (matchedReport != null) {
               targetCode = matchedReport.ticketCode;
-              targetLocation = matchedReport.locationName ?? 'Wilayah Pesisir Terpantau';
+              targetLocation = matchedReport.displayLocation;
 
               final actUpper = action.toUpperCase();
               if (actUpper.contains('VERIFIKASI') && !actUpper.contains('BERSIH')) {
@@ -478,7 +476,7 @@ class ReportService extends ChangeNotifier {
               targetCode = targetIdRaw != null && targetIdRaw.length >= 8
                   ? '#CW-${targetIdRaw.replaceAll('-', '').substring(0, 6).toUpperCase()}'
                   : '-';
-              targetLocation = 'Wilayah Pesisir Terpantau';
+              targetLocation = 'Pesisir Terverifikasi';
               summaryText = 'Aktivitas operasional sistem diverifikasi oleh staf Admin CoastWatch.';
             }
 
@@ -715,6 +713,16 @@ class ReportService extends ChangeNotifier {
         }
       }
 
+      // Pastikan nama lokasi selalu data riil tempat berada (bukan kata-kata statis)
+      String? realLocName = locationName?.trim();
+      if (realLocName == null ||
+          realLocName.isEmpty ||
+          realLocName.toLowerCase().contains('terpantau') ||
+          realLocName.toLowerCase().contains('pantai batam') ||
+          realLocName.toLowerCase().contains('pesisir indonesia')) {
+        realLocName = await LocationService.resolveRealLocation(latitude, longitude);
+      }
+
       final newReport = ReportModel(
         id: reportId,
         clientSubmissionId: _uuid.v4(),
@@ -725,11 +733,7 @@ class ReportService extends ChangeNotifier {
         description: description.trim(),
         latitude: latitude,
         longitude: longitude,
-        locationName: (locationName != null &&
-                locationName.trim().isNotEmpty &&
-                !locationName.toLowerCase().contains('pesisir indonesia'))
-            ? locationName.trim()
-            : null,
+        locationName: realLocName,
         exifDateTimeOriginal: photoTimestamp,
         deviceLocationAccuracyM: accuracy,
         metadataValidationStatus: accuracy <= AppConstants.maxAccuracyThresholdMeters ? 'valid' : 'warning',

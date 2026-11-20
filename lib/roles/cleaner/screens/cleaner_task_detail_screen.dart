@@ -240,9 +240,7 @@ class _CleanerTaskDetailScreenState extends State<CleanerTaskDetailScreen> {
           activeStep = 4;
         }
 
-        final regionName = report.locationName != null && report.locationName!.isNotEmpty
-            ? report.locationName!
-            : 'Kawasan Pesisir Pantai Batam';
+        final regionName = report.displayLocation;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
