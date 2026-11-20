@@ -287,9 +287,26 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
     );
   }
 
-  // DESKTOP QUEUE TABLE
-  // Ample width for Category so names are NEVER truncated with "..."
+  // DESKTOP QUEUE TABLE — responsive flex layout with zero overlap
   Widget _buildDesktopQueueTable(List<ReportModel> reports) {
+    if (reports.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 36),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.inbox_outlined, size: 36, color: Color(0xFF94A3B8)),
+              SizedBox(height: 8),
+              Text(
+                'Tidak ada laporan yang perlu ditinjau saat ini.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Container(
@@ -297,25 +314,39 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Row(
             children: [
-              Checkbox(
-                value: _selectedReportIds.length == reports.length && reports.isNotEmpty,
-                onChanged: (val) {
-                  setState(() {
-                    if (val == true) {
-                      _selectedReportIds.addAll(reports.map((r) => r.id));
-                    } else {
-                      _selectedReportIds.clear();
-                    }
-                  });
-                },
+              SizedBox(
+                width: 32,
+                child: Checkbox(
+                  value: _selectedReportIds.length == reports.length && reports.isNotEmpty,
+                  onChanged: (val) {
+                    setState(() {
+                      if (val == true) {
+                        _selectedReportIds.addAll(reports.map((r) => r.id));
+                      } else {
+                        _selectedReportIds.clear();
+                      }
+                    });
+                  },
+                ),
               ),
-              const SizedBox(width: 44, child: Text('FOTO', style: _colHeaderStyle)),
-              const SizedBox(width: 90, child: Text('ID & WAKTU', style: _colHeaderStyle)),
-              // WIDE COLUMN FOR CATEGORY SO IT DOES NOT TRUNCATE WITH "..."
-              const SizedBox(width: 220, child: Text('KATEGORI TEMUAN', style: _colHeaderStyle)),
-              const Expanded(flex: 3, child: Text('RINGKASAN DESKRIPSI', style: _colHeaderStyle)),
-              const Expanded(flex: 2, child: Text('WILAYAH PESISIR', style: _colHeaderStyle)),
-              const SizedBox(width: 100, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
+              const SizedBox(width: 8),
+              const SizedBox(width: 48, child: Text('FOTO', style: _colHeaderStyle)),
+              const SizedBox(width: 12),
+              const Expanded(flex: 2, child: Text('ID & WAKTU', style: _colHeaderStyle)),
+              const SizedBox(width: 8),
+              const Expanded(flex: 3, child: Text('KATEGORI TEMUAN', style: _colHeaderStyle)),
+              const SizedBox(width: 8),
+              const Expanded(flex: 4, child: Text('RINGKASAN DESKRIPSI', style: _colHeaderStyle)),
+              const SizedBox(width: 8),
+              const Expanded(flex: 3, child: Text('WILAYAH PESISIR', style: _colHeaderStyle)),
+              const SizedBox(width: 8),
+              const SizedBox(
+                width: 110,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text('AKSI', style: _colHeaderStyle),
+                ),
+              ),
             ],
           ),
         ),
@@ -340,92 +371,134 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Checkbox(
-              value: isSelected,
-              onChanged: (val) {
-                setState(() {
-                  if (val == true) {
-                    _selectedReportIds.add(report.id);
-                  } else {
-                    _selectedReportIds.remove(report.id);
-                  }
-                });
-              },
+            SizedBox(
+              width: 32,
+              child: Checkbox(
+                value: isSelected,
+                onChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      _selectedReportIds.add(report.id);
+                    } else {
+                      _selectedReportIds.remove(report.id);
+                    }
+                  });
+                },
+              ),
             ),
+            const SizedBox(width: 8),
 
             // Photo
             SizedBox(
-              width: 44,
+              width: 48,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: SafeAppImage(imageUrl: report.beforePhotoUrl, width: 38, height: 28, fit: BoxFit.cover),
+                child: SafeAppImage(
+                  imageUrl: report.beforePhotoUrl,
+                  width: 48,
+                  height: 32,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
+            const SizedBox(width: 12),
 
-            // Wilayah & Waktu
-            SizedBox(
-              width: 120,
+            // ID Tiket & Waktu
+            Expanded(
+              flex: 2,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    report.locationName ?? 'Pesisir Batam',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    report.ticketCode,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: 0.3,
+                    ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt),
-                    style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
 
-            // KATEGORI TEMUAN: Fully readable, no ellipsis (...), no background color
-            SizedBox(
-              width: 220,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Text(
-                  report.categoryName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                    height: 1.25,
-                  ),
-                  maxLines: 2,
-                ),
-              ),
-            ),
-
-            // Deskripsi
+            // KATEGORI TEMUAN
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.only(right: 4),
                 child: Text(
-                  report.description,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.3),
+                  report.categoryName,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                    height: 1.3,
+                  ),
                   maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
+            const SizedBox(width: 8),
+
+            // Deskripsi
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  report.description.isNotEmpty ? report.description : 'Tidak ada deskripsi tambahan',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF334155),
+                    height: 1.35,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
 
             // Wilayah Pesisir
             Expanded(
-              flex: 2,
-              child: Text(
-                report.locationName ?? 'Pesisir Lapangan',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
-                maxLines: 2,
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        report.locationName ?? 'Wilayah Pesisir Batam',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+            const SizedBox(width: 8),
 
             // Button
             SizedBox(
-              width: 120,
+              width: 110,
               child: Align(
                 alignment: Alignment.centerRight,
                 child: OutlinedButton(
