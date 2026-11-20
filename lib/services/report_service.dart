@@ -12,27 +12,28 @@ import '../models/status_history_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
 import 'location_service.dart';
-import 'mock_data_service.dart';
 import 'supabase_service.dart';
 
 class ReportService extends ChangeNotifier {
   static final ReportService _instance = ReportService._internal();
   factory ReportService() => _instance;
   ReportService._internal() {
-    _reports = MockDataService.getInitialMockReports();
-    _auditLogs = MockDataService.getInitialAuditLogs();
-    _adminUsers = MockDataService.getInitialAdminUsers();
+    // Start with empty lists — data is loaded from Supabase via init()
+    _reports = [];
+    _auditLogs = [];
+    _adminUsers = [];
     _categories = List.from(CategoryModel.defaultCategories);
   }
 
   final AuthService _authService = AuthService();
   final _uuid = const Uuid();
 
-  void resetToMockData() {
-    _reports = MockDataService.getInitialMockReports();
-    _auditLogs = MockDataService.getInitialAuditLogs();
-    _adminUsers = MockDataService.getInitialAdminUsers();
-    _categories = List.from(CategoryModel.defaultCategories);
+  /// Resets service state (used only for logout / test scenarios)
+  void resetState() {
+    _reports = [];
+    _auditLogs = [];
+    _adminUsers = [];
+    _isCloudConnected = false;
     notifyListeners();
   }
 
@@ -140,8 +141,8 @@ class ReportService extends ChangeNotifier {
                 cleanupTask = CleanupTaskModel(
                   id: lastCleanup['id'] as String? ?? 'cln-task',
                   reportId: r['id'] as String,
-                  cleanerId: lastCleanup['cleaner_id'] as String? ?? 'd0000000-0000-0000-0000-000000000002',
-                  cleanerName: 'Budi Relawan Pembersih',
+                  cleanerId: lastCleanup['cleaner_id'] as String? ?? '',
+                  cleanerName: lastCleanup['cleaner_name'] as String? ?? lastCleanup['cleaner_id'] as String? ?? 'Relawan',
                   notes: lastCleanup['notes'] as String?,
                   cleanupLat: (lastCleanup['cleanup_lat'] as num?)?.toDouble(),
                   cleanupLng: (lastCleanup['cleanup_lng'] as num?)?.toDouble(),
@@ -161,7 +162,7 @@ class ReportService extends ChangeNotifier {
                   reportId: r['id'] as String,
                   fromStatus: h['from_status'] != null ? ReportStatusExtension.fromString(h['from_status'] as String?) : null,
                   toStatus: ReportStatusExtension.fromString(h['to_status'] as String?),
-                  actorName: 'Relawan / Admin',
+                  actorName: h['actor_name'] as String? ?? h['actor_id'] as String? ?? 'Sistem',
                   reason: h['reason'] as String?,
                   createdAt: DateTime.tryParse(h['created_at'] as String? ?? '') ?? DateTime.now(),
                 );
@@ -226,21 +227,32 @@ class ReportService extends ChangeNotifier {
       try {
         final logsData = await client
             .from('audit_logs')
-            .select()
+            .select('*, profiles!actor_id(display_name, role)')
             .order('created_at', ascending: false);
         if (logsData.isNotEmpty) {
           final liveLogs = (logsData as List).map((l) {
-            final target = l['target_id'] != null
-                ? '#${l['target_id'].toString().substring(0, 8)}'
+            final targetId = l['target_id'];
+            final target = targetId != null
+                ? (targetId.toString().length > 8
+                    ? '#${targetId.toString().substring(0, 8)}'
+                    : '#$targetId')
                 : '-';
+            final actorProfile = l['profiles'] as Map<String, dynamic>?;
+            final actorName = actorProfile?['display_name'] as String? ?? 'Admin';
+            final actorRole = actorProfile?['role'] as String? ?? 'admin';
+            final roleLabel = actorRole == 'admin' ? 'Admin Operasional' : (actorRole == 'cleaner' ? 'Relawan' : 'Pelapor');
             return AdminAuditLogModel(
               id: l['id'] as String,
               timestamp: DateTime.tryParse(l['created_at'] as String? ?? '') ?? DateTime.now(),
-              adminName: 'Admin',
+              adminName: actorName,
+              adminRole: roleLabel,
               actionType: l['action'] as String? ?? 'AUDIT',
               targetId: target,
-              targetLocation: 'Pesisir Lapangan',
-              summary: 'Aktivitas audit tercatat di database Supabase',
+              targetLocation: l['target_location'] as String? ?? '-',
+              summary: l['summary'] as String? ?? 'Aktivitas sistem tercatat.',
+              coordinates: l['coordinates'] as String?,
+              hash: l['hash'] as String?,
+              warningBadge: l['warning_badge'] as String?,
             );
           }).toList();
           _auditLogs = liveLogs;

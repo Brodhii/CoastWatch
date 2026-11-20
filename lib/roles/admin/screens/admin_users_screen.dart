@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../models/admin_user_model.dart';
 import '../../../services/report_service.dart';
 
@@ -79,7 +80,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Menampilkan ${users.length} dari 342 akun relawan pesisir',
+                              users.isEmpty
+                                  ? 'Tidak ada akun terdaftar'
+                                  : 'Menampilkan ${users.length} akun terdaftar',
                               style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                             ),
                             Container(
@@ -190,9 +193,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 ),
 
                 // Bergabung
-                const SizedBox(
+                SizedBox(
                   width: 90,
-                  child: Text('12 Sep 2024', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  child: Text(
+                    DateFormat('dd MMM yyyy', 'id_ID').format(user.joinedDate),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
                 ),
 
                 // Laporan
