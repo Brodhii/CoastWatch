@@ -25,22 +25,37 @@ class CleanerDashboardScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
               children: [
-                const Text(
-                  'Dasbor Relawan Pembersih',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.navy,
+                ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 34,
+                    height: 34,
+                    fit: BoxFit.contain,
                   ),
                 ),
-                Text(
-                  authService.currentUser.displayName,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textSecondary,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Dasbor Relawan Pembersih',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.navy,
+                        ),
+                      ),
+                      Text(
+                        authService.currentUser.displayName,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

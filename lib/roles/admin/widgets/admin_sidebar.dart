@@ -47,20 +47,15 @@ class AdminSidebar extends StatelessWidget {
                 Container(
                   width: 32,
                   height: 32,
-                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: const Color(0xFF334155)),
                   ),
-                  child: const Text(
-                    'CW',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(width: 10),

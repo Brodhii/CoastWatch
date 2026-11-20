@@ -306,7 +306,22 @@ class ProfileScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.navy)),
+        title: Row(
+          children: [
+            ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 28,
+                height: 28,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.navy)),
+            ),
+          ],
+        ),
         content: Text(message, style: const TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textPrimary)),
         actions: [
           TextButton(
