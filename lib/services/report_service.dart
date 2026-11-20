@@ -725,7 +725,11 @@ class ReportService extends ChangeNotifier {
         description: description.trim(),
         latitude: latitude,
         longitude: longitude,
-        locationName: locationName ?? 'Pesisir Indonesia (GPS Terverifikasi)',
+        locationName: (locationName != null &&
+                locationName.trim().isNotEmpty &&
+                !locationName.toLowerCase().contains('pesisir indonesia'))
+            ? locationName.trim()
+            : null,
         exifDateTimeOriginal: photoTimestamp,
         deviceLocationAccuracyM: accuracy,
         metadataValidationStatus: accuracy <= AppConstants.maxAccuracyThresholdMeters ? 'valid' : 'warning',

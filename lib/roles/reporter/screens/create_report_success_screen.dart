@@ -63,36 +63,53 @@ class CreateReportSuccessScreen extends StatelessWidget {
               // Report ID & Status Info Card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 decoration: BoxDecoration(
                   color: AppTheme.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppTheme.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
                     const Text(
                       'Nomor Laporan',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      report.id,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textMuted,
                         letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      report.ticketCode,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
                         color: AppTheme.navy,
                       ),
                     ),
                     const SizedBox(height: 12),
                     StatusBadge(status: report.status),
-                    const SizedBox(height: 10),
-                    Text(
-                      report.locationName ?? report.formattedCoordinates,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                      textAlign: TextAlign.center,
-                    ),
+                    // Hanya tampilkan lokasi jika ada nama tempat yang spesifik dan bukan teks generik
+                    if (report.locationName != null &&
+                        report.locationName!.trim().isNotEmpty &&
+                        !report.locationName!.toLowerCase().contains('pesisir indonesia')) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        report.locationName!,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               ),

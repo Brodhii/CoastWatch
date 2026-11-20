@@ -596,7 +596,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ID: ${report.id}',
+                        'ID: ${report.ticketCode}',
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       const SizedBox(height: 2),
