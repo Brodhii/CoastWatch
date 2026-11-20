@@ -427,9 +427,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
               ),
               const SizedBox(width: 6),
               Text(
-                _location != null
+                _location != null && !_location!.isFallback
                     ? 'GPS Terkunci (±${_location!.accuracy.toStringAsFixed(0)}m)'
-                    : 'GPS Pesisir Batam',
+                    : 'Mencari Sinyal GPS...',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,

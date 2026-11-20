@@ -7,6 +7,7 @@ import '../core/constants.dart';
 import '../models/category_model.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import '../services/report_service.dart';
 import '../shared/safe_app_image.dart';
 import '../shared/status_badge.dart';
@@ -22,10 +23,26 @@ class _PublicMapScreenState extends State<PublicMapScreen> {
   final MapController _mapController = MapController();
   final ReportService _reportService = ReportService();
   final AuthService _authService = AuthService();
+  final LocationService _locationService = LocationService();
 
   String? _selectedCategoryId;
   ReportModel? _selectedReport;
   bool _showCleanedHistory = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _centerToUserLocation();
+  }
+
+  Future<void> _centerToUserLocation() async {
+    try {
+      final loc = await _locationService.getCurrentLocation(strict: false);
+      if (mounted && loc != null && !loc.isFallback) {
+        _mapController.move(LatLng(loc.latitude, loc.longitude), 14.5);
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,13 +60,20 @@ class _PublicMapScreenState extends State<PublicMapScreen> {
             title: const Text('Peta Laporan Publik'),
             actions: [
               IconButton(
-                tooltip: 'Pusatkan Peta',
+                tooltip: 'Pusatkan ke Lokasi Saya',
                 icon: const Icon(Icons.my_location, size: 20),
-                onPressed: () {
-                  _mapController.move(
-                    const LatLng(AppConstants.defaultLatitude, AppConstants.defaultLongitude),
-                    AppConstants.defaultZoom,
-                  );
+                onPressed: () async {
+                  try {
+                    final myLoc = await _locationService.getCurrentLocation(strict: false);
+                    if (myLoc != null) {
+                      _mapController.move(LatLng(myLoc.latitude, myLoc.longitude), 15.0);
+                    }
+                  } catch (_) {
+                    _mapController.move(
+                      const LatLng(AppConstants.defaultLatitude, AppConstants.defaultLongitude),
+                      AppConstants.defaultZoom,
+                    );
+                  }
                 },
               ),
             ],

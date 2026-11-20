@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/app_theme.dart';
@@ -47,12 +48,100 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
     super.dispose();
   }
 
+  void _showLocationRequiredDialog({
+    required String title,
+    required String message,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.location_off_rounded, color: AppTheme.statusRejected, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navy),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onAction();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.navy,
+              foregroundColor: AppTheme.white,
+            ),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openCamera() async {
     setState(() => _isProcessing = true);
 
     try {
-      final locFuture = _locationService.getCurrentLocation();
+      // 1. Cek apakah layanan GPS aktif di perangkat
+      final serviceEnabled = await _locationService.isServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        _showLocationRequiredDialog(
+          title: 'Lokasi / GPS Belum Aktif',
+          message: 'Relawan wajib mengaktifkan GPS perangkat untuk memvalidasi bahwa foto bukti pembersihan benar-benar diambil di lokasi pesisir.',
+          actionLabel: 'Buka Pengaturan Lokasi',
+          onAction: () async {
+            await _locationService.openLocationSettings();
+          },
+        );
+        return;
+      }
 
+      // 2. Cek izin lokasi
+      var permission = await _locationService.checkPermissionStatus();
+      if (permission == LocationPermission.denied) {
+        permission = await _locationService.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        _showLocationRequiredDialog(
+          title: 'Izin Lokasi Diperlukan',
+          message: 'Aplikasi CoastWatch membutuhkan izin lokasi nyata untuk memverifikasi pekerjaan pembersihan sampah pesisir oleh relawan.',
+          actionLabel: permission == LocationPermission.deniedForever ? 'Buka Pengaturan Aplikasi' : 'Izinkan Lokasi',
+          onAction: () async {
+            if (permission == LocationPermission.deniedForever) {
+              await _locationService.openAppSettings();
+            } else {
+              await _locationService.requestPermission();
+            }
+          },
+        );
+        return;
+      }
+
+      // 3. Ambil posisi GPS nyata perangkat secara akurat (strict = true)
+      final loc = await _locationService.getCurrentLocation(strict: true);
+
+      if (!mounted) return;
       final XFile? picture = await Navigator.push<XFile>(
         context,
         MaterialPageRoute(
@@ -67,15 +156,14 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
         return;
       }
 
-      final loc = await locFuture;
       _captureLocation = loc;
       await _processImage(picture, loc);
     } catch (e) {
-      debugPrint('[CleanupProof] Error opening camera: $e');
+      debugPrint('[CleanupProof] Error opening camera / GPS: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kendala kamera: $e. Pastikan izin kamera aktif.'),
+            content: Text('Kendala GPS / Kamera: $e'),
             backgroundColor: AppTheme.statusRejected,
           ),
         );

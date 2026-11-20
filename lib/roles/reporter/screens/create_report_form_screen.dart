@@ -26,6 +26,10 @@ class _CreateReportFormScreenState extends State<CreateReportFormScreen> {
   void initState() {
     super.initState();
     _selectedCategory = CategoryModel.defaultCategories.first;
+    final initialLocationName = widget.reportData['locationName'] as String?;
+    if (initialLocationName != null && initialLocationName.isNotEmpty) {
+      _locationNameController.text = initialLocationName;
+    }
   }
 
   @override

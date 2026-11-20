@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/app_routes.dart';
@@ -33,6 +34,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
   Uint8List? _imageBytes;
   LocationResult? _captureLocation;
   ExifDataResult? _exifResult;
+  String? _detectedLocationName;
   bool _isProcessing = false;
 
   // Validasi pencegahan laporan duplikat (≤ 10 meter)
@@ -56,18 +58,113 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
           );
         }
       });
+      return;
     }
+
+    _checkInitialLocation();
   }
 
-  /// Buka Viewfinder Kamera interaktif CoastWatch (mendukung webcam laptop & kamera HP)
+  Future<void> _checkInitialLocation() async {
+    try {
+      final isEnabled = await _locationService.isServiceEnabled();
+      if (!isEnabled) {
+        debugPrint('[CreateReport] Location service is not enabled initially');
+      }
+    } catch (_) {}
+  }
+
+  void _showLocationRequiredDialog({
+    required String title,
+    required String message,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.location_off_rounded, color: AppTheme.statusRejected, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navy),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.navy,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              onAction();
+            },
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Buka Viewfinder Kamera interaktif CoastWatch dengan validasi lokasi GPS wajib
   Future<void> _openCamera() async {
     setState(() => _isProcessing = true);
 
     try {
-      // 1. Ambil lokasi GPS secara instan/background
-      final locFuture = _locationService.getCurrentLocation();
+      // 1. Verifikasi layanan lokasi (GPS) pada perangkat
+      final isServiceEnabled = await _locationService.isServiceEnabled();
+      if (!isServiceEnabled) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        _showLocationRequiredDialog(
+          title: 'Layanan Lokasi (GPS) Belum Aktif',
+          message: 'Aplikasi CoastWatch mewajibkan pengaktifan GPS untuk mendeteksi koordinat nyata titik pesisir di tempat Anda berada.',
+          actionLabel: 'Buka Pengaturan Lokasi',
+          onAction: () async {
+            await _locationService.openLocationSettings();
+          },
+        );
+        return;
+      }
 
-      // 2. Buka layar kamera live viewfinder
+      // 2. Minta izin akses lokasi jika belum diberikan
+      final permission = await _locationService.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        _showLocationRequiredDialog(
+          title: 'Izin Lokasi Diperlukan',
+          message: 'Aplikasi CoastWatch membutuhkan izin lokasi nyata untuk validasi geotagging laporan sampah pesisir Anda.',
+          actionLabel: permission == LocationPermission.deniedForever ? 'Buka Pengaturan Aplikasi' : 'Izinkan Lokasi',
+          onAction: () async {
+            if (permission == LocationPermission.deniedForever) {
+              await _locationService.openAppSettings();
+            } else {
+              await _locationService.requestPermission();
+            }
+          },
+        );
+        return;
+      }
+
+      // 3. Ambil posisi GPS nyata perangkat secara akurat (strict = true)
+      final loc = await _locationService.getCurrentLocation(strict: true);
+
+      // 4. Buka layar kamera live viewfinder
+      if (!mounted) return;
       final XFile? picture = await Navigator.push<XFile>(
         context,
         MaterialPageRoute(
@@ -82,15 +179,14 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
         return;
       }
 
-      final loc = await locFuture;
       _captureLocation = loc;
       await _processImageFile(picture, loc);
     } catch (e) {
-      debugPrint('[CreateReport] Error opening camera: $e');
+      debugPrint('[CreateReport] Error opening camera / GPS: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kendala kamera: $e. Pastikan izin kamera aktif.'),
+            content: Text('Kendala GPS / Kamera: $e'),
             backgroundColor: AppTheme.statusRejected,
           ),
         );
@@ -120,10 +216,16 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
       // Ekstraksi EXIF GPS dengan fallback ke sensor perangkat
       final exif = await _exifService.extractExifData(bytes, fallbackLocation: loc);
 
-      // Cek apakah ada laporan aktif lain dalam radius 10 meter (pencegahan duplikat)
+      // Deteksi nama wilayah pesisir dari koordinat GPS nyata (reverse geocoding)
+      String? detectedName;
       ReportModel? duplicate;
       double? duplicateDist;
       if (exif.latitude != null && exif.longitude != null) {
+        try {
+          detectedName = await LocationService.getAddressFromCoordinates(exif.latitude!, exif.longitude!);
+        } catch (_) {}
+
+        // Cek apakah ada laporan aktif lain dalam radius 10 meter (pencegahan duplikat)
         duplicate = _reportService.findNearbyActiveReport(
           exif.latitude!,
           exif.longitude!,
@@ -144,6 +246,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
           _capturedFile = file;
           _imageBytes = bytes;
           _exifResult = exif;
+          _detectedLocationName = detectedName;
           _nearbyDuplicateReport = duplicate;
           _duplicateDistanceMeters = duplicateDist;
           _isProcessing = false;
@@ -406,6 +509,8 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
       return;
     }
 
+    final fallbackCoordsName = 'Wilayah Pesisir (${_exifResult!.latitude!.toStringAsFixed(4)}, ${_exifResult!.longitude!.toStringAsFixed(4)})';
+
     Navigator.pushNamed(
       context,
       AppRoutes.createReportForm,
@@ -417,6 +522,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
         'latitude': _exifResult!.latitude!,
         'longitude': _exifResult!.longitude!,
         'accuracy': _captureLocation?.accuracy ?? 15.0,
+        'locationName': _detectedLocationName ?? fallbackCoordsName,
         'photoTimestamp': _exifResult!.dateTimeOriginal ?? DateTime.now(),
         'bypassDuplicate': _bypassDuplicateSimulation,
       },

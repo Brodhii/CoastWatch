@@ -91,7 +91,7 @@ class ReportModel {
       longitude: json['longitude'] is num
           ? (json['longitude'] as num).toDouble()
           : (double.tryParse(json['longitude']?.toString() ?? '0.0') ?? 0.0),
-      locationName: json['location_name'] as String? ?? 'Kawasan Pesisir Batam / Kepri',
+      locationName: json['location_name'] as String? ?? 'Wilayah Pesisir Terpantau',
       exifDateTimeOriginal: json['exif_datetime_original'] != null
           ? DateTime.tryParse(json['exif_datetime_original'].toString())
           : null,
