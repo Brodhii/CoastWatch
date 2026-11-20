@@ -24,6 +24,69 @@ class _AdminAllReportsScreenState extends State<AdminAllReportsScreen> {
   String _selectedStatus = 'all';
   String _selectedCategory = 'all';
 
+  void _confirmDeleteReport(ReportModel report) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+            SizedBox(width: 8),
+            Text('Hapus Laporan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Apakah Anda yakin ingin menghapus laporan "${report.categoryName}" di ${report.locationName ?? 'wilayah pesisir'} secara permanen?',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: const Text(
+                'Data laporan dan media foto akan dihapus permanen dari server Supabase.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await _reportService.deleteReport(report.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? 'Laporan berhasil dihapus.' : 'Gagal menghapus laporan.'),
+                    backgroundColor: success ? const Color(0xFF0F172A) : const Color(0xFFDC2626),
+                  ),
+                );
+              }
+            },
+            child: const Text('Hapus Permanen'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -158,7 +221,7 @@ class _AdminAllReportsScreenState extends State<AdminAllReportsScreen> {
         style: const TextStyle(fontSize: 12),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-          hintText: 'Cari deskripsi, lokasi, ID...',
+          hintText: 'Cari deskripsi, lokasi, kategori...',
           hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
           fillColor: const Color(0xFFF8FAFC),
           filled: true,
@@ -286,12 +349,12 @@ class _AdminAllReportsScreenState extends State<AdminAllReportsScreen> {
           child: const Row(
             children: [
               SizedBox(width: 44, child: Text('FOTO', style: _colHeaderStyle)),
-              SizedBox(width: 100, child: Text('ID & WAKTU', style: _colHeaderStyle)),
-              SizedBox(width: 130, child: Text('STATUS', style: _colHeaderStyle)),
-              SizedBox(width: 180, child: Text('KATEGORI TEMUAN', style: _colHeaderStyle)),
+              SizedBox(width: 100, child: Text('TANGGAL', style: _colHeaderStyle)),
+              SizedBox(width: 155, child: Text('STATUS', style: _colHeaderStyle)),
+              SizedBox(width: 165, child: Text('KATEGORI TEMUAN', style: _colHeaderStyle)),
               Expanded(flex: 3, child: Text('RINGKASAN DESKRIPSI', style: _colHeaderStyle)),
               Expanded(flex: 2, child: Text('WILAYAH PESISIR', style: _colHeaderStyle)),
-              SizedBox(width: 90, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
+              SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('AKSI', style: _colHeaderStyle))),
             ],
           ),
         ),
@@ -321,36 +384,31 @@ class _AdminAllReportsScreenState extends State<AdminAllReportsScreen> {
               ),
             ),
 
-            // ID & Waktu
+            // Tanggal
             SizedBox(
               width: 100,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    report.id.length > 8 ? '#${report.id.substring(0, 8)}' : '#${report.id}',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                  ),
-                  Text(
-                    DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt),
-                    style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
-                  ),
-                ],
+              child: Text(
+                DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
               ),
             ),
 
             // Status
             SizedBox(
-              width: 130,
+              width: 155,
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: StatusBadge(status: report.status, isCompact: true),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: StatusBadge(status: report.status, isCompact: true),
+                ),
               ),
             ),
 
             // Kategori
             SizedBox(
-              width: 180,
+              width: 165,
               child: Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: Text(
@@ -392,20 +450,34 @@ class _AdminAllReportsScreenState extends State<AdminAllReportsScreen> {
             ),
 
             // Button
+            // Button & Delete Action
             SizedBox(
-              width: 90,
+              width: 120,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  onPressed: () => widget.onNavigateToReview(report.id),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
-                  child: const Text('Kelola', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => widget.onNavigateToReview(report.id),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0F172A),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                      child: const Text('Kelola', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: 'Hapus Laporan',
+                      icon: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _confirmDeleteReport(report),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -474,23 +546,36 @@ class _AdminAllReportsScreenState extends State<AdminAllReportsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        report.id.length > 8 ? '#${report.id.substring(0, 8)}' : '#${report.id}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                      Expanded(
+                        child: Text(
+                          report.categoryName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      StatusBadge(status: report.status, isCompact: true),
+                      const SizedBox(width: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          StatusBadge(status: report.status, isCompact: true),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip: 'Hapus Laporan',
+                            icon: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _confirmDeleteReport(report),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    report.categoryName,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     '${report.locationName ?? 'Pesisir Lapangan'} • ${DateFormat('dd MMM yyyy', 'id_ID').format(report.createdAt)}',
                     style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),

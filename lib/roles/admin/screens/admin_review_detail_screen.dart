@@ -839,23 +839,39 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
-                    child: const Text('Tolak Laporan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    child: const Text('Ubah Jadi Ditolak', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: OutlinedButton(
+                  child: ElevatedButton(
                     onPressed: () => _verifyReport(report),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0F172A),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      elevation: 0,
                     ),
                     child: const Text('Verifikasi Ulang', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => _showDeleteDialog(report),
+              icon: const Icon(Icons.delete_forever_outlined, size: 15, color: Color(0xFFDC2626)),
+              label: const Text('Hapus Laporan Secara Permanen', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+                side: const BorderSide(color: Color(0xFFFECACA)),
+                backgroundColor: const Color(0xFFFEF2F2),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              ),
             ),
           ],
         ),
@@ -925,7 +941,96 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
             ),
           ],
         ),
+
+        const SizedBox(height: 14),
+        const Divider(color: Color(0xFFF1F5F9), height: 1),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () => _showDeleteDialog(report),
+          icon: const Icon(Icons.delete_forever_outlined, size: 15, color: Color(0xFFDC2626)),
+          label: const Text('Hapus Laporan Secara Permanen', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFDC2626),
+            side: const BorderSide(color: Color(0xFFFECACA)),
+            backgroundColor: const Color(0xFFFEF2F2),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        ),
       ],
+    );
+  }
+
+  void _showDeleteDialog(ReportModel report) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+            SizedBox(width: 8),
+            Text('Hapus Laporan Permanen', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Apakah Anda yakin ingin menghapus laporan #${report.id.substring(0, report.id.length > 8 ? 8 : report.id.length)} secara permanen dari server database Supabase?',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: const Text(
+                'Perhatian: Tindakan ini tidak dapat dibatalkan. Data foto bukti, status pembersihan, dan log laporan ini akan dihapus permanen dari basis data GIS.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await _reportService.deleteReport(report.id);
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Laporan berhasil dihapus permanen dari sistem.'),
+                      backgroundColor: Color(0xFF0F172A),
+                    ),
+                  );
+                  widget.onBackToQueue();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal menghapus laporan.'),
+                      backgroundColor: Color(0xFFDC2626),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Ya, Hapus Permanen'),
+          ),
+        ],
+      ),
     );
   }
 

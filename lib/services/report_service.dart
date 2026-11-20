@@ -790,6 +790,106 @@ class ReportService extends ChangeNotifier {
     return true;
   }
 
+  /// Admin deletes a report permanently from Supabase & local state (CRUD: Delete)
+  Future<bool> deleteReport(String reportId) async {
+    final index = _reports.indexWhere((r) => r.id == reportId);
+    if (index == -1) return false;
+
+    final report = _reports[index];
+    final now = DateTime.now();
+    final adminUser = _authService.currentUser;
+    final adminName = adminUser.displayName.isNotEmpty ? adminUser.displayName : 'Admin Operasional';
+
+    // Remove from local memory
+    _reports.removeAt(index);
+
+    // Append to audit log
+    _auditLogs.insert(
+      0,
+      AdminAuditLogModel(
+        id: 'aud-${_uuid.v4()}',
+        timestamp: now,
+        adminName: adminName,
+        actionType: 'HAPUS LAPORAN',
+        targetId: '#$reportId',
+        targetLocation: report.locationName ?? 'Pesisir Lapangan',
+        summary: 'Laporan dihapus permanen oleh Admin dari basis data GIS.',
+        coordinates: '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
+        hash: 'sha256-del-${reportId.toLowerCase()}',
+      ),
+    );
+
+    // Sinkronisasi hapus ke cloud Supabase
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').delete().eq('id', reportId);
+
+        if (_authService.isAuthenticated) {
+          try {
+            await client.from('audit_logs').insert({
+              'actor_id': adminUser.id,
+              'action': 'HAPUS LAPORAN',
+              'target_id': reportId,
+            });
+          } catch (_) {}
+        }
+        debugPrint('[ReportService] Laporan $reportId berhasil dihapus permanen dari Supabase cloud.');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase delete sync note: $e');
+      }
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Admin updates report category if classified incorrectly by citizen
+  Future<bool> adminUpdateReportCategory(String reportId, {required String newCategoryId, required String newCategoryName}) async {
+    final index = _reports.indexWhere((r) => r.id == reportId);
+    if (index == -1) return false;
+
+    final report = _reports[index];
+    final now = DateTime.now();
+    final adminUser = _authService.currentUser;
+    final adminName = adminUser.displayName.isNotEmpty ? adminUser.displayName : 'Admin Operasional';
+
+    final updatedReport = report.copyWith(
+      categoryId: newCategoryId,
+      categoryName: newCategoryName,
+      updatedAt: now,
+      statusHistory: [
+        ...report.statusHistory,
+        StatusHistoryModel(
+          id: 'sh-${_uuid.v4()}',
+          reportId: reportId,
+          fromStatus: report.status,
+          toStatus: report.status,
+          actorName: '$adminName (Admin Operasional)',
+          reason: 'Koreksi kategori dari "${report.categoryName}" menjadi "$newCategoryName"',
+          createdAt: now,
+        ),
+      ],
+    );
+
+    _reports[index] = updatedReport;
+
+    final client = SupabaseService().client;
+    if (client != null && SupabaseService().isInitialized) {
+      try {
+        await client.from('reports').update({
+          'category_id': newCategoryId,
+        }).eq('id', reportId);
+        debugPrint('[ReportService] adminUpdateReportCategory berhasil disinkronkan ke Supabase cloud.');
+      } catch (e) {
+        debugPrint('[ReportService] Supabase category update note: $e');
+      }
+    }
+
+    notifyListeners();
+    return true;
+  }
+
   // ================= CATEGORY MANAGEMENT =================
   void toggleCategoryStatus(String categoryId) {
     final idx = _categories.indexWhere((c) => c.id == categoryId);
