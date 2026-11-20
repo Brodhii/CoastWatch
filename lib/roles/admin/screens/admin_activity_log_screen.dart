@@ -176,48 +176,59 @@ class _AdminActivityLogScreenState extends State<AdminActivityLogScreen> {
   }
 
   Widget _buildStatCards(double w, List<AdminAuditLogModel> allLogs) {
-    final double cardW = (w < 640) ? (w - 10) / 2 : (w - 20) / 3;
-
     final totalEntries = allLogs.length;
     final verifiedCount = allLogs.where((l) => l.actionType.toUpperCase().contains('VERIFIKASI')).length;
     final rejectedCount = allLogs.where((l) => l.actionType.toUpperCase().contains('TOLAK') || l.actionType.toUpperCase().contains('DUPLIKAT')).length;
     final now = DateTime.now();
     final todayCount = allLogs.where((l) => l.timestamp.year == now.year && l.timestamp.month == now.month && l.timestamp.day == now.day).length;
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        _buildStatCard(
-          width: cardW,
-          title: 'TOTAL AKTIVITAS',
-          count: '$totalEntries',
-          sub: '+$todayCount tercatat hari ini',
-        ),
-        _buildStatCard(
-          width: cardW,
-          title: 'VERIFIKASI & PERSETUJUAN',
-          count: '$verifiedCount',
-          sub: 'Keputusan validasi aktif',
-        ),
-        _buildStatCard(
-          width: cardW,
-          title: 'TOLAK & DUPLIKAT',
-          count: '$rejectedCount',
-          sub: 'Penyaringan laporan invalid',
-        ),
-      ],
+    final card1 = _buildStatCard(
+      title: 'TOTAL AKTIVITAS',
+      count: '$totalEntries',
+      sub: '+$todayCount tercatat hari ini',
     );
+    final card2 = _buildStatCard(
+      title: 'VERIFIKASI & PERSETUJUAN',
+      count: '$verifiedCount',
+      sub: 'Keputusan validasi aktif',
+    );
+    final card3 = _buildStatCard(
+      title: 'TOLAK & DUPLIKAT',
+      count: '$rejectedCount',
+      sub: 'Penyaringan laporan invalid',
+    );
+
+    // Desktop/Tablet: tepat 3 kartu ke samping dalam 1 baris simetris
+    if (w >= 700) {
+      return Row(
+        children: [
+          Expanded(child: card1),
+          const SizedBox(width: 10),
+          Expanded(child: card2),
+          const SizedBox(width: 10),
+          Expanded(child: card3),
+        ],
+      );
+    } else {
+      // Mobile: tersusun rapi vertikal
+      return Column(
+        children: [
+          card1,
+          const SizedBox(height: 10),
+          card2,
+          const SizedBox(height: 10),
+          card3,
+        ],
+      );
+    }
   }
 
   Widget _buildStatCard({
-    required double width,
     required String title,
     required String count,
     required String sub,
   }) {
     return Container(
-      width: width,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,

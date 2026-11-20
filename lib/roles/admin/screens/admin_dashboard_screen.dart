@@ -196,65 +196,82 @@ class AdminDashboardScreen extends StatelessWidget {
     );
   }
 
-  // 4 METRIC CARDS — fully dynamic from Supabase
+  // 4 METRIC CARDS — fully dynamic from Supabase (4 sejajar di desktop)
   Widget _buildMetricCards(double w, ReportService reportService) {
-    double cardWidth;
-    if (w < 600) {
-      cardWidth = (w - 10) / 2;
-    } else {
-      cardWidth = (w - 30) / 4;
-    }
-
     final pendingCount = reportService.reports.where((r) => r.status == ReportStatus.pendingReview).length;
     final verifiedCount = reportService.reports.where((r) => r.status == ReportStatus.verified || r.status == ReportStatus.inProgress || r.status == ReportStatus.cleaned).length;
     final rejectedCount = reportService.reports.where((r) => r.status == ReportStatus.rejected).length;
     final duplicateCount = reportService.reports.where((r) => r.status == ReportStatus.duplicate).length;
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        _buildStatCard(
-          width: cardWidth,
-          title: 'MENUNGGU VERIFIKASI',
-          count: '$pendingCount',
-          unit: 'Laporan',
-          footerText: pendingCount > 0 ? '$pendingCount laporan antrean' : 'Antrean bersih',
-        ),
-        _buildStatCard(
-          width: cardWidth,
-          title: 'TERVERIFIKASI',
-          count: '$verifiedCount',
-          unit: 'Laporan',
-          footerText: 'Bukti GIS valid',
-        ),
-        _buildStatCard(
-          width: cardWidth,
-          title: 'DITOLAK',
-          count: '$rejectedCount',
-          unit: 'Laporan',
-          footerText: 'Alasan transparan',
-        ),
-        _buildStatCard(
-          width: cardWidth,
-          title: 'DITANDAI DUPLIKAT',
-          count: '$duplicateCount',
-          unit: 'Laporan',
-          footerText: 'Radius klaster identik',
-        ),
-      ],
+    final card1 = _buildStatCard(
+      title: 'MENUNGGU VERIFIKASI',
+      count: '$pendingCount',
+      unit: 'Laporan',
+      footerText: pendingCount > 0 ? '$pendingCount laporan antrean' : 'Antrean bersih',
     );
+    final card2 = _buildStatCard(
+      title: 'TERVERIFIKASI',
+      count: '$verifiedCount',
+      unit: 'Laporan',
+      footerText: 'Bukti GIS valid',
+    );
+    final card3 = _buildStatCard(
+      title: 'DITOLAK',
+      count: '$rejectedCount',
+      unit: 'Laporan',
+      footerText: 'Alasan transparan',
+    );
+    final card4 = _buildStatCard(
+      title: 'DITANDAI DUPLIKAT',
+      count: '$duplicateCount',
+      unit: 'Laporan',
+      footerText: 'Radius klaster identik',
+    );
+
+    // Desktop/Tablet horizontal: tepat 4 kartu ke samping dalam 1 baris
+    if (w >= 700) {
+      return Row(
+        children: [
+          Expanded(child: card1),
+          const SizedBox(width: 10),
+          Expanded(child: card2),
+          const SizedBox(width: 10),
+          Expanded(child: card3),
+          const SizedBox(width: 10),
+          Expanded(child: card4),
+        ],
+      );
+    } else {
+      // Mobile: 2x2 grid rapi
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: card1),
+              const SizedBox(width: 10),
+              Expanded(child: card2),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: card3),
+              const SizedBox(width: 10),
+              Expanded(child: card4),
+            ],
+          ),
+        ],
+      );
+    }
   }
 
   Widget _buildStatCard({
-    required double width,
     required String title,
     required String count,
     required String unit,
     required String footerText,
   }) {
     return Container(
-      width: width,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
