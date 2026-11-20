@@ -163,18 +163,22 @@ class AdminSidebar extends StatelessWidget {
                     ),
                     _buildNavItem(
                       index: 2,
-                      label: 'Peta Laporan',
+                      label: 'Semua Laporan',
                     ),
                     _buildNavItem(
                       index: 3,
-                      label: 'Kategori',
+                      label: 'Peta Laporan',
                     ),
                     _buildNavItem(
                       index: 4,
-                      label: 'Pengguna',
+                      label: 'Kategori',
                     ),
                     _buildNavItem(
                       index: 5,
+                      label: 'Pengguna',
+                    ),
+                    _buildNavItem(
+                      index: 6,
                       label: 'Riwayat Aktivitas',
                     ),
                   ],

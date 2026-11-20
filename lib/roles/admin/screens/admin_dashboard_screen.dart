@@ -22,8 +22,10 @@ class AdminDashboardScreen extends StatelessWidget {
     return ListenableBuilder(
       listenable: reportService,
       builder: (context, _) {
-        final pendingReports = reportService.reports
-            .where((r) => r.status == ReportStatus.pendingReview)
+        final totalQueueReports = reportService.reports
+            .where((r) => r.status == ReportStatus.pendingReview || r.status == ReportStatus.pendingCleanupReview)
+            .toList();
+        final pendingReports = totalQueueReports
             .take(4)
             .toList();
 
@@ -72,8 +74,8 @@ class AdminDashboardScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // 2. Metric Cards (Card "Total Masuk" dihapus sesuai permintaan)
-                  _buildMetricCards(w),
+                  // 2. Metric Cards
+                  _buildMetricCards(w, reportService),
 
                 const SizedBox(height: 20),
 
@@ -106,15 +108,15 @@ class AdminDashboardScreen extends StatelessWidget {
                                 color: const Color(0xFF0F172A),
                                 borderRadius: BorderRadius.circular(3),
                               ),
-                              child: const Text(
-                                '14 Butuh Aksi',
-                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
+                              child: Text(
+                                '${totalQueueReports.length} Butuh Aksi',
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
                               ),
                             ),
                             const Spacer(),
                             if (w >= 700)
                               const Text(
-                                'Wilayah: Pesisir Jabodetabek & Karawang',
+                                'Wilayah: Pesisir Batam & Kepri',
                                 style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                               ),
                           ],
@@ -136,9 +138,11 @@ class AdminDashboardScreen extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Menampilkan 4 dari 14 laporan antrean',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            Text(
+                              totalQueueReports.isEmpty
+                                  ? 'Tidak ada laporan dalam antrean saat ini'
+                                  : 'Menampilkan ${pendingReports.length} dari ${totalQueueReports.length} laporan antrean',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                             ),
                             InkWell(
                               onTap: onNavigateToQueue,
@@ -188,14 +192,19 @@ class AdminDashboardScreen extends StatelessWidget {
     );
   }
 
-  // 4 METRIC CARDS (Card "Total Masuk" dihapus, desain simple putih)
-  Widget _buildMetricCards(double w) {
+  // 4 METRIC CARDS (desain simple putih, data dinamis dari Supabase)
+  Widget _buildMetricCards(double w, ReportService reportService) {
     double cardWidth;
     if (w < 600) {
       cardWidth = (w - 10) / 2;
     } else {
       cardWidth = (w - 30) / 4;
     }
+
+    final pendingCount = reportService.reports.where((r) => r.status == ReportStatus.pendingReview).length;
+    final verifiedCount = reportService.reports.where((r) => r.status == ReportStatus.verified || r.status == ReportStatus.inProgress || r.status == ReportStatus.cleaned).length;
+    final rejectedCount = reportService.reports.where((r) => r.status == ReportStatus.rejected).length;
+    final duplicateCount = reportService.reports.where((r) => r.status == ReportStatus.duplicate).length;
 
     return Wrap(
       spacing: 10,
@@ -204,28 +213,28 @@ class AdminDashboardScreen extends StatelessWidget {
         _buildStatCard(
           width: cardWidth,
           title: 'MENUNGGU VERIFIKASI',
-          count: '14',
+          count: '$pendingCount',
           unit: 'Laporan',
-          footerText: '4 laporan >24 jam',
+          footerText: pendingCount > 0 ? '$pendingCount laporan antrean' : 'Antrean bersih',
         ),
         _buildStatCard(
           width: cardWidth,
           title: 'TERVERIFIKASI',
-          count: '128',
+          count: '$verifiedCount',
           unit: 'Laporan',
-          footerText: 'Bukti digital valid',
+          footerText: 'Bukti GIS valid',
         ),
         _buildStatCard(
           width: cardWidth,
           title: 'DITOLAK',
-          count: '19',
+          count: '$rejectedCount',
           unit: 'Laporan',
           footerText: 'Alasan transparan',
         ),
         _buildStatCard(
           width: cardWidth,
           title: 'DITANDAI DUPLIKAT',
-          count: '7',
+          count: '$duplicateCount',
           unit: 'Laporan',
           footerText: 'Radius klaster identik',
         ),

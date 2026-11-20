@@ -791,7 +791,78 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
       );
     }
 
-    // TAHAP 1: Verifikasi Laporan Masuk
+    // JIKA STATUS SUDAH DIPUTUSKAN (Verified / In Cleanup / Cleaned / Rejected / Duplicate)
+    if (report.status != ReportStatus.pendingReview) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'STATUS SAAT INI: ',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5),
+                ),
+                StatusBadge(status: report.status, isCompact: true),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              report.status == ReportStatus.verified
+                  ? 'Laporan ini telah disetujui dan saat ini aktif dipublikasikan di peta GIS publik serta dapat diambil tugasnya oleh relawan.'
+                  : report.status == ReportStatus.inProgress
+                      ? 'Laporan ini sedang dalam proses pembersihan lapangan oleh relawan CoastWatch.'
+                      : report.status == ReportStatus.cleaned
+                          ? 'Pembersihan laporan ini telah selesai dan disahkan oleh Admin secara resmi.'
+                          : report.status == ReportStatus.rejected
+                              ? 'Laporan ini ditolak dan tidak dipublikasikan ke peta publik.'
+                              : 'Laporan ini ditandai sebagai duplikat dari laporan lain.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _showRejectDialog(report),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                    child: const Text('Tolak Laporan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _verifyReport(report),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0F172A),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                    child: const Text('Verifikasi Ulang', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // TAHAP 1: Verifikasi Laporan Masuk (Pending Review)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

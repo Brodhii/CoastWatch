@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'screens/admin_activity_log_screen.dart';
+import 'screens/admin_all_reports_screen.dart';
 import 'screens/admin_categories_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/admin_map_screen.dart';
@@ -28,6 +29,7 @@ class AdminShellScreen extends StatefulWidget {
 class _AdminShellScreenState extends State<AdminShellScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late int _selectedTabIndex;
+  int _previousTabIndex = 1;
   String? _reviewingReportId;
 
   @override
@@ -49,7 +51,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
   void _openReportReview(String reportId) {
     setState(() {
-      _selectedTabIndex = 1;
+      _previousTabIndex = _selectedTabIndex;
       _reviewingReportId = reportId;
     });
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
@@ -59,12 +61,13 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
   void _closeReportReview() {
     setState(() {
+      _selectedTabIndex = _previousTabIndex;
       _reviewingReportId = null;
     });
   }
 
   String get _breadcrumbTitle {
-    if (_selectedTabIndex == 1 && _reviewingReportId != null) {
+    if (_reviewingReportId != null) {
       return 'Tinjau Bukti #$_reviewingReportId';
     }
     switch (_selectedTabIndex) {
@@ -73,12 +76,14 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       case 1:
         return 'Antrean Verifikasi Laporan';
       case 2:
-        return 'Peta Laporan GIS';
+        return 'Semua Laporan Pesisir';
       case 3:
-        return 'Manajemen Kategori Lingkungan';
+        return 'Peta Laporan GIS';
       case 4:
-        return 'Pengguna & Relawan Lapangan';
+        return 'Manajemen Kategori Lingkungan';
       case 5:
+        return 'Pengguna & Relawan Lapangan';
+      case 6:
         return 'Riwayat Aktivitas & Audit Konsol';
       default:
         return 'Konsol Admin';
@@ -141,7 +146,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
   }
 
   Widget _buildCurrentContent() {
-    if (_selectedTabIndex == 1 && _reviewingReportId != null) {
+    if (_reviewingReportId != null) {
       return AdminReviewDetailScreen(
         reportId: _reviewingReportId!,
         onBackToQueue: _closeReportReview,
@@ -153,27 +158,31 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         return AdminDashboardScreen(
           onNavigateToReview: _openReportReview,
           onNavigateToQueue: () => _onSelectTab(1),
-          onNavigateToAuditLogs: () => _onSelectTab(5),
+          onNavigateToAuditLogs: () => _onSelectTab(6),
         );
       case 1:
         return AdminQueueScreen(
           onNavigateToReview: _openReportReview,
         );
       case 2:
-        return AdminMapScreen(
+        return AdminAllReportsScreen(
           onNavigateToReview: _openReportReview,
         );
       case 3:
-        return const AdminCategoriesScreen();
+        return AdminMapScreen(
+          onNavigateToReview: _openReportReview,
+        );
       case 4:
-        return const AdminUsersScreen();
+        return const AdminCategoriesScreen();
       case 5:
+        return const AdminUsersScreen();
+      case 6:
         return const AdminActivityLogScreen();
       default:
         return AdminDashboardScreen(
           onNavigateToReview: _openReportReview,
           onNavigateToQueue: () => _onSelectTab(1),
-          onNavigateToAuditLogs: () => _onSelectTab(5),
+          onNavigateToAuditLogs: () => _onSelectTab(6),
         );
     }
   }
