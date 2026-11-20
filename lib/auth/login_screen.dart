@@ -176,6 +176,30 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
+
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Akun Demo Tersedia (Password: password):',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• Admin: admin\n• Relawan: relawan\n• Pelapor: pelapor',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.4),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

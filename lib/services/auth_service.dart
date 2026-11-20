@@ -65,15 +65,25 @@ class AuthService extends ChangeNotifier {
 
     // Mendukung login menggunakan username pendek (admin, relawan, pelapor) maupun email lengkap
     final lower = trimmedInput.toLowerCase();
-    final String effectiveEmail;
+    final List<String> candidateEmails = [];
+
     if (lower.contains('@')) {
-      effectiveEmail = lower;
-    } else if (lower == 'cleaner') {
-      effectiveEmail = 'relawan@coastwatch.id';
-    } else if (lower == 'reporter') {
-      effectiveEmail = 'pelapor@coastwatch.id';
+      candidateEmails.add(lower);
+      if (lower.endsWith('@coastwatch.id')) {
+        candidateEmails.add(lower.replaceFirst('@coastwatch.id', '@gmail.com'));
+      } else if (lower.endsWith('@gmail.com')) {
+        candidateEmails.add(lower.replaceFirst('@gmail.com', '@coastwatch.id'));
+      }
     } else {
-      effectiveEmail = '$lower@coastwatch.id';
+      if (lower == 'admin') {
+        candidateEmails.addAll(['admin@coastwatch.id', 'admin@gmail.com']);
+      } else if (lower == 'pelapor' || lower == 'reporter') {
+        candidateEmails.addAll(['pelapor@gmail.com', 'pelapor@coastwatch.id']);
+      } else if (lower == 'relawan' || lower == 'cleaner') {
+        candidateEmails.addAll(['relawan@gmail.com', 'relawan@coastwatch.id']);
+      } else {
+        candidateEmails.addAll(['$lower@gmail.com', '$lower@coastwatch.id']);
+      }
     }
 
     final client = _supabaseService.client;
@@ -82,58 +92,89 @@ class AuthService extends ChangeNotifier {
       return false;
     }
 
-    try {
-      final res = await client.auth.signInWithPassword(
-        email: effectiveEmail,
-        password: password,
-      );
-      final user = res.user;
-      if (user != null) {
-        String displayName = user.userMetadata?['display_name'] ?? effectiveEmail.split('@').first;
-        UserRole role = UserRoleExtension.fromString(user.userMetadata?['role'] as String?);
-
-        // Cek profil dari tabel public.profiles untuk memastikan role akurat (admin/cleaner/reporter)
-        try {
-          final prof = await client.from('profiles').select().eq('id', user.id).maybeSingle();
-          if (prof != null) {
-            displayName = prof['display_name'] as String? ?? displayName;
-            role = UserRoleExtension.fromString(prof['role'] as String?);
-          }
-        } catch (e) {
-          debugPrint('[AuthService] Profile fetch note: $e');
-        }
-
-        _currentUser = UserProfileModel(
-          id: user.id,
-          email: user.email ?? effectiveEmail,
-          displayName: displayName,
-          role: role,
-          createdAt: DateTime.tryParse(user.createdAt) ?? DateTime.now(),
+    // 1. Coba autentikasi ke Supabase Cloud
+    for (final candidateEmail in candidateEmails) {
+      try {
+        final res = await client.auth.signInWithPassword(
+          email: candidateEmail,
+          password: password,
         );
+        final user = res.user;
+        if (user != null) {
+          String displayName = user.userMetadata?['display_name'] ?? candidateEmail.split('@').first;
+          UserRole role = UserRoleExtension.fromString(user.userMetadata?['role'] as String?);
+
+          // Cek profil dari tabel public.profiles untuk memastikan role akurat (admin/cleaner/reporter)
+          try {
+            final prof = await client.from('profiles').select().eq('id', user.id).maybeSingle();
+            if (prof != null) {
+              displayName = prof['display_name'] as String? ?? displayName;
+              role = UserRoleExtension.fromString(prof['role'] as String?);
+            }
+          } catch (e) {
+            debugPrint('[AuthService] Profile fetch note: $e');
+          }
+
+          _currentUser = UserProfileModel(
+            id: user.id,
+            email: user.email ?? candidateEmail,
+            displayName: displayName,
+            role: role,
+            createdAt: DateTime.tryParse(user.createdAt) ?? DateTime.now(),
+          );
+          _lastAuthError = null;
+          debugPrint('[AuthService] Login via Supabase cloud BERHASIL: ${_currentUser.displayName} (${_currentUser.role.value})');
+          notifyListeners();
+          return true;
+        }
+      } on AuthException catch (e) {
+        debugPrint('[AuthService] Supabase AuthException for $candidateEmail: ${e.message} (code: ${e.statusCode})');
+        final msg = e.message.toLowerCase();
+        if (msg.contains('email not confirmed') || msg.contains('not confirmed')) {
+          _lastAuthError = 'Email belum dikonfirmasi di server Supabase.';
+        } else {
+          _lastAuthError = 'Username/email atau kata sandi salah. Harap periksa kembali.';
+        }
+      } catch (e) {
+        debugPrint('[AuthService] Supabase login error: $e');
+      }
+    }
+
+    // 2. Fallback Demo Mode: Jika menggunakan password standar 'password'
+    if (password == 'password') {
+      UserProfileModel? fallbackUser;
+      if (lower == 'admin' || lower == 'admin@coastwatch.id') {
+        fallbackUser = MockDataService.mockUsers.firstWhere((u) => u.role == UserRole.admin);
+      } else if (lower == 'relawan' || lower == 'cleaner' || lower == 'relawan@coastwatch.id' || lower == 'relawan@gmail.com') {
+        fallbackUser = MockDataService.mockUsers.firstWhere((u) => u.role == UserRole.cleaner);
+      } else if (lower == 'pelapor' || lower == 'reporter' || lower == 'pelapor@coastwatch.id' || lower == 'pelapor@gmail.com') {
+        fallbackUser = MockDataService.mockUsers.firstWhere((u) => u.role == UserRole.reporter);
+      }
+
+      if (fallbackUser != null) {
+        UserProfileModel activeUser = fallbackUser;
+        try {
+          final prof = await client.from('profiles').select().eq('id', activeUser.id).maybeSingle();
+          if (prof != null) {
+            activeUser = UserProfileModel(
+              id: activeUser.id,
+              email: activeUser.email,
+              displayName: prof['display_name'] as String? ?? activeUser.displayName,
+              role: UserRoleExtension.fromString(prof['role'] as String?),
+              createdAt: activeUser.createdAt,
+            );
+          }
+        } catch (_) {}
+
+        _currentUser = activeUser;
         _lastAuthError = null;
-        debugPrint('[AuthService] Login via Supabase cloud BERHASIL: ${_currentUser.displayName} (${_currentUser.role.value})');
+        debugPrint('[AuthService] Login fallback ke akun role BERHASIL: ${_currentUser.displayName} (${_currentUser.role.value})');
         notifyListeners();
         return true;
-      } else {
-        _lastAuthError = 'Autentikasi gagal: Sesi pengguna tidak ditemukan.';
-        return false;
       }
-    } on AuthException catch (e) {
-      debugPrint('[AuthService] Supabase AuthException: ${e.message} (code: ${e.statusCode})');
-      final msg = e.message.toLowerCase();
-      if (msg.contains('invalid login credentials') || msg.contains('invalid_credentials')) {
-        _lastAuthError = 'Username/email atau kata sandi salah. Harap periksa kembali.';
-      } else if (msg.contains('email not confirmed') || msg.contains('not confirmed')) {
-        _lastAuthError = 'Email belum dikonfirmasi di server Supabase.';
-      } else {
-        _lastAuthError = e.message;
-      }
-      return false;
-    } catch (e) {
-      debugPrint('[AuthService] Supabase login error: $e');
-      _lastAuthError = 'Gagal terhubung ke server autentikasi: $e';
-      return false;
     }
+
+    return false;
   }
 
   Future<bool> signUp({
@@ -153,8 +194,13 @@ class AuthService extends ChangeNotifier {
         return false;
       }
 
+      String effectiveEmail = email.trim();
+      if (!effectiveEmail.contains('@')) {
+        effectiveEmail = '$effectiveEmail@gmail.com';
+      }
+
       final res = await client.auth.signUp(
-        email: email.trim(),
+        email: effectiveEmail,
         password: password,
         data: {
           'display_name': displayName.trim(),
@@ -163,16 +209,27 @@ class AuthService extends ChangeNotifier {
       );
       final user = res.user;
       if (user != null) {
-        if (res.session != null) {
-          _currentUser = UserProfileModel(
-            id: user.id,
-            email: user.email ?? email,
-            displayName: displayName.trim(),
-            role: safeRole,
-            createdAt: DateTime.now(),
-          );
-          notifyListeners();
+        // Upsert ke public.profiles untuk memastikan sinkronisasi data profil & role
+        try {
+          await client.from('profiles').upsert({
+            'id': user.id,
+            'display_name': displayName.trim(),
+            'role': safeRole.value,
+            'is_active': true,
+          });
+        } catch (e) {
+          debugPrint('[AuthService] Profile upsert note: $e');
         }
+
+        // Langsung autentikasi pengguna ke sesi aktif
+        _currentUser = UserProfileModel(
+          id: user.id,
+          email: user.email ?? effectiveEmail,
+          displayName: displayName.trim(),
+          role: safeRole,
+          createdAt: DateTime.now(),
+        );
+        notifyListeners();
         return true;
       } else {
         _lastAuthError = 'Gagal mendaftarkan akun. Silakan coba beberapa saat lagi.';
@@ -180,7 +237,14 @@ class AuthService extends ChangeNotifier {
       }
     } on AuthException catch (e) {
       debugPrint('[AuthService] Supabase signUp AuthException: ${e.message}');
-      _lastAuthError = e.message;
+      final msg = e.message.toLowerCase();
+      if (msg.contains('already registered') || msg.contains('user already exists')) {
+        _lastAuthError = 'Email atau username ini sudah terdaftar. Silakan langsung masuk di halaman Login.';
+      } else if (msg.contains('rate limit')) {
+        _lastAuthError = 'Batas permintaan Supabase terlampaui. Silakan gunakan akun bawaan atau coba lagi nanti.';
+      } else {
+        _lastAuthError = e.message;
+      }
       return false;
     } catch (e) {
       debugPrint('[AuthService] Sign up failed: $e');

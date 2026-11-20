@@ -66,24 +66,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      if (_authService.isAuthenticated) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.initial,
-          (route) => false,
-        );
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pendaftaran berhasil! Silakan masuk dengan akun Anda.'),
-            backgroundColor: AppTheme.navy,
-          ),
-        );
-        Navigator.pushReplacementNamed(context, AppRoutes.login);
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Pendaftaran berhasil! Selamat datang, $name.'),
+          backgroundColor: AppTheme.navy,
+        ),
+      );
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.initial,
+        (route) => false,
+      );
     } else {
       setState(() {
         _isLoading = false;
