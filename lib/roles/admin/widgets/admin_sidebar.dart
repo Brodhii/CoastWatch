@@ -159,7 +159,7 @@ class AdminSidebar extends StatelessWidget {
                     _buildNavItem(
                       index: 1,
                       label: 'Verifikasi Laporan',
-                      badgeCount: pendingCount > 0 ? pendingCount : 12,
+                      badgeCount: pendingCount > 0 ? pendingCount : null,
                     ),
                     _buildNavItem(
                       index: 2,

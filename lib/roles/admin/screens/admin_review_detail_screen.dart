@@ -67,10 +67,11 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Laporan #${report.id} disetujui untuk publikasi ke peta GIS.'),
+          content: Text('Laporan disetujui dan dipublikasikan ke peta GIS.'),
           backgroundColor: const Color(0xFF0F172A),
         ),
       );
+      widget.onBackToQueue();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e')));
@@ -85,11 +86,12 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
         await _reportService.adminRejectReport(report.id, reason: reason);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Laporan #${report.id} ditolak dengan alasan tersimpan.'),
-            backgroundColor: const Color(0xFFDC2626),
+          const SnackBar(
+            content: Text('Laporan ditolak dan dikembalikan ke pelapor.'),
+            backgroundColor: Color(0xFFDC2626),
           ),
         );
+        widget.onBackToQueue();
       },
     );
   }
@@ -102,11 +104,12 @@ class _AdminReviewDetailScreenState extends State<AdminReviewDetailScreen> {
         await _reportService.adminMarkDuplicate(report.id, duplicateOfReportId: originalId, notes: notes);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Laporan #${report.id} ditandai duplikat dari #$originalId.'),
-            backgroundColor: const Color(0xFF0F172A),
+          const SnackBar(
+            content: Text('Laporan ditandai duplikat.'),
+            backgroundColor: Color(0xFF0F172A),
           ),
         );
+        widget.onBackToQueue();
       },
     );
   }

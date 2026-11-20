@@ -105,17 +105,20 @@ class _AdminQueueScreenState extends State<AdminQueueScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Menampilkan ${reports.length} laporan antrean',
+                              reports.isEmpty
+                                  ? 'Tidak ada laporan dalam antrean'
+                                  : 'Menampilkan ${reports.length} laporan antrean',
                               style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F172A),
-                                borderRadius: BorderRadius.circular(3),
+                            if (reports.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: const Text('1', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
                               ),
-                              child: const Text('1', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                            ),
                           ],
                         ),
                       ),
