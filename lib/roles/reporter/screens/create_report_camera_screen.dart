@@ -25,7 +25,6 @@ class CreateReportCameraScreen extends StatefulWidget {
 }
 
 class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
-  final ImagePicker _picker = ImagePicker();
   final LocationService _locationService = LocationService();
   final ExifService _exifService = ExifService();
   final ReportService _reportService = ReportService();
@@ -91,43 +90,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kendala kamera: $e. Coba pilih foto dari galeri.'),
-            backgroundColor: AppTheme.statusRejected,
-          ),
-        );
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  /// Pilih foto dari galeri / penyimpanan laptop
-  Future<void> _pickFromGallery() async {
-    setState(() => _isProcessing = true);
-
-    try {
-      final locFuture = _locationService.getCurrentLocation();
-
-      final XFile? pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-
-      if (pickedFile == null) {
-        if (mounted) setState(() => _isProcessing = false);
-        return;
-      }
-
-      final loc = await locFuture;
-      _captureLocation = loc;
-      await _processImageFile(pickedFile, loc);
-    } catch (e) {
-      debugPrint('[CreateReport] Error picking image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memuat foto galeri: $e'),
+            content: Text('Kendala kamera: $e. Pastikan izin kamera aktif.'),
             backgroundColor: AppTheme.statusRejected,
           ),
         );
@@ -231,7 +194,7 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Ambil foto temuan pesisir secara langsung atau pilih dari galeri. Sistem menyematkan koordinat GPS untuk validasi geotagging.',
+                      'Foto temuan pesisir wajib diambil langsung di lokasi menggunakan kamera. Akses galeri dinonaktifkan demi keaslian data ilmiah dan akurasi geotagging.',
                       style: TextStyle(fontSize: 12, color: AppTheme.navy, height: 1.3),
                     ),
                   ),
@@ -269,33 +232,20 @@ class _CreateReportCameraScreenState extends State<CreateReportCameraScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Buka kamera langsung atau pilih dari berkas/galeri',
+                      'Wajib ambil foto langsung di lokasi menggunakan kamera',
                       style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _isProcessing ? null : _openCamera,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.navy,
-                            foregroundColor: AppTheme.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          ),
-                          icon: const Icon(Icons.camera_alt, size: 18),
-                          label: const Text('Buka Kamera'),
-                        ),
-                        const SizedBox(width: 12),
-                        OutlinedButton.icon(
-                          onPressed: _isProcessing ? null : _pickFromGallery,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          ),
-                          icon: const Icon(Icons.photo_library_outlined, size: 18),
-                          label: const Text('Galeri / Berkas'),
-                        ),
-                      ],
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      onPressed: _isProcessing ? null : _openCamera,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.navy,
+                        foregroundColor: AppTheme.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.camera_alt, size: 20),
+                      label: const Text('Buka Kamera Langsung', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                     ),
                   ],
                 ),

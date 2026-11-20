@@ -26,7 +26,6 @@ class CleanupProofScreen extends StatefulWidget {
 }
 
 class _CleanupProofScreenState extends State<CleanupProofScreen> {
-  final ImagePicker _picker = ImagePicker();
   final LocationService _locationService = LocationService();
   final ExifService _exifService = ExifService();
   final ReportService _reportService = ReportService();
@@ -76,42 +75,7 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kendala kamera: $e. Coba pilih foto dari galeri.'),
-            backgroundColor: AppTheme.statusRejected,
-          ),
-        );
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  Future<void> _pickFromGallery() async {
-    setState(() => _isProcessing = true);
-
-    try {
-      final locFuture = _locationService.getCurrentLocation();
-
-      final XFile? picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-
-      if (picked == null) {
-        if (mounted) setState(() => _isProcessing = false);
-        return;
-      }
-
-      final loc = await locFuture;
-      _captureLocation = loc;
-      await _processImage(picked, loc);
-    } catch (e) {
-      debugPrint('[CleanupProof] Gallery error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memuat galeri: $e'),
+            content: Text('Kendala kamera: $e. Pastikan izin kamera aktif.'),
             backgroundColor: AppTheme.statusRejected,
           ),
         );
@@ -364,26 +328,17 @@ class _CleanupProofScreenState extends State<CleanupProofScreen> {
                       'Pastikan garis pantai/area bersih terlihat jelas',
                       style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _isProcessing ? null : _openCamera,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.navy,
-                            foregroundColor: AppTheme.white,
-                          ),
-                          icon: const Icon(Icons.camera_alt, size: 18),
-                          label: const Text('Buka Kamera'),
-                        ),
-                        const SizedBox(width: 12),
-                        OutlinedButton.icon(
-                          onPressed: _isProcessing ? null : _pickFromGallery,
-                          icon: const Icon(Icons.photo_library_outlined, size: 18),
-                          label: const Text('Galeri'),
-                        ),
-                      ],
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      onPressed: _isProcessing ? null : _openCamera,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.navy,
+                        foregroundColor: AppTheme.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.camera_alt, size: 20),
+                      label: const Text('Buka Kamera Langsung', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                     ),
                   ],
                 ),

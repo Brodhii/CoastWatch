@@ -185,30 +185,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
       }
     } catch (e) {
       debugPrint('[CameraCaptureScreen] System camera pick note: $e');
-      // Jika browser tidak mengizinkan akses kamera langsung, tawarkan berkas/galeri
-      await _pickFromGallery();
-    }
-  }
-
-  Future<void> _pickFromGallery() async {
-    try {
-      final picker = ImagePicker();
-      final XFile? file = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-
-      if (file != null && mounted) {
-        Navigator.pop(context, file);
-      }
-    } catch (e) {
-      debugPrint('[CameraCaptureScreen] Gallery pick error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal memilih foto: $e'),
+            content: Text('Kamera tidak dapat diakses: $e. Pastikan izin kamera aktif.'),
             backgroundColor: AppTheme.statusRejected,
           ),
         );
@@ -343,7 +323,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
               ElevatedButton.icon(
                 onPressed: _pickFromSystemCamera,
                 icon: const Icon(Icons.camera_alt_outlined, size: 20),
-                label: const Text('Buka Kamera Laptop / HP'),
+                label: const Text('Buka Kamera Langsung'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.teal,
                   foregroundColor: AppTheme.navy,
@@ -352,20 +332,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
                   textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                 ),
               ),
-              const SizedBox(height: 10),
-              // Tombol 2: Pilih Foto dari Galeri / Berkas Laptop
-              OutlinedButton.icon(
-                onPressed: _pickFromGallery,
-                icon: const Icon(Icons.photo_library_outlined, size: 18, color: Colors.white),
-                label: const Text('Pilih Foto dari Galeri / File Laptop', style: TextStyle(color: Colors.white, fontSize: 12)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white38),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
               const SizedBox(height: 12),
-              // Tombol 3: Coba Sambungkan Kamera Lagi
+              // Tombol 2: Coba Sambungkan Kamera Lagi
               TextButton.icon(
                 onPressed: _initCamerasAndLocation,
                 icon: const Icon(Icons.refresh, size: 15, color: Colors.white60),
@@ -501,18 +469,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Gallery shortcut
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.photo_library_outlined, color: Colors.white, size: 24),
-              tooltip: 'Pilih dari Galeri',
-              onPressed: _isTakingPicture ? null : _pickFromGallery,
-            ),
-          ),
+          // Empty balanced spacer replacing gallery
+          const SizedBox(width: 48, height: 48),
 
           // Main Shutter Button
           GestureDetector(
